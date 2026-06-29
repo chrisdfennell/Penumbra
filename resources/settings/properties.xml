@@ -1,0 +1,16 @@
+<properties>
+    <!-- 0 = Light (white background, black digits), 1 = Dark (black background, white digits) -->
+    <property id="Theme" type="number">0</property>
+
+    <!-- Flip-card accent colour. 0=Orange 1=Blue 2=Green 3=Red 4=Yellow -->
+    <property id="Accent" type="number">0</property>
+
+    <!-- Show the seconds card -->
+    <property id="ShowSeconds" type="boolean">true</property>
+
+    <!-- Show the date above the time -->
+    <property id="ShowDate" type="boolean">true</property>
+
+    <!-- Show the weather complication (temp + hi/lo) -->
+    <property id="ShowWeather" type="boolean">true</property>
+</properties>

@@ -1,0 +1,92 @@
+<iq:manifest version="3" xmlns:iq="http://www.garmin.com/xml/connectiq">
+    <!--
+        Penumbra - a bright, data-dense digital watch face. Three large digit groups
+        show HH MM SS (accent-coloured seconds), ringed by a full set of icon
+        complications (heart rate, steps, distance, calories, floors, body battery,
+        device battery, notifications, alarms, live weather condition + hi/lo). Light
+        and dark themes plus a selectable accent colour.
+
+        Everything is laid out relative to dc.getWidth()/getHeight() and the screen
+        centre, and the big digits use the built-in numeric system fonts, so the same
+        source scales across every round panel size with no per-resolution font assets.
+
+        Targets CIQ 4.0+ round watches. minApiLevel 4.0.0 guarantees the Body Battery
+        SensorHistory API (4.0+); every optional feature is still guarded with `has`
+        checks at runtime so nothing crashes on a device that lacks it.
+    -->
+    <iq:application id="b7e4d2a1-9c63-4f08-ae15-3d6f2c8b40e9" type="watchface" name="@Strings.AppName" entry="PenumbraApp" launcherIcon="@Drawables.LauncherIcon" minApiLevel="4.0.0">
+        <iq:products>
+            <!-- Forerunner -->
+            <iq:product id="fr165"/>
+            <iq:product id="fr165m"/>
+            <iq:product id="fr255"/>
+            <iq:product id="fr255m"/>
+            <iq:product id="fr255s"/>
+            <iq:product id="fr255sm"/>
+            <iq:product id="fr265"/>
+            <iq:product id="fr265s"/>
+            <iq:product id="fr57042mm"/>
+            <iq:product id="fr57047mm"/>
+            <iq:product id="fr955"/>
+            <iq:product id="fr965"/>
+            <iq:product id="fr970"/>
+
+            <!-- fenix / epix / enduro -->
+            <iq:product id="fenix7"/>
+            <iq:product id="fenix7pro"/>
+            <iq:product id="fenix7pronowifi"/>
+            <iq:product id="fenix7s"/>
+            <iq:product id="fenix7spro"/>
+            <iq:product id="fenix7x"/>
+            <iq:product id="fenix7xpro"/>
+            <iq:product id="fenix7xpronowifi"/>
+            <iq:product id="fenix843mm"/>
+            <iq:product id="fenix847mm"/>
+            <iq:product id="fenix8pro47mm"/>
+            <iq:product id="fenix8solar47mm"/>
+            <iq:product id="fenix8solar51mm"/>
+            <iq:product id="fenixe"/>
+            <iq:product id="epix2"/>
+            <iq:product id="epix2pro42mm"/>
+            <iq:product id="epix2pro47mm"/>
+            <iq:product id="epix2pro51mm"/>
+            <iq:product id="enduro3"/>
+
+            <!-- Venu / Vivoactive -->
+            <iq:product id="venu2"/>
+            <iq:product id="venu2plus"/>
+            <iq:product id="venu2s"/>
+            <iq:product id="venu3"/>
+            <iq:product id="venu3s"/>
+            <iq:product id="venu441mm"/>
+            <iq:product id="venu445mm"/>
+            <iq:product id="vivoactive5"/>
+            <iq:product id="vivoactive6"/>
+
+            <!-- Instinct -->
+            <iq:product id="instinct3amoled45mm"/>
+            <iq:product id="instinct3amoled50mm"/>
+
+            <!-- Specialty: golf (Approach), dive (Descent), aviation (D2), MARQ -->
+            <iq:product id="approachs50"/>
+            <iq:product id="approachs7042mm"/>
+            <iq:product id="approachs7047mm"/>
+            <iq:product id="d2airx10"/>
+            <iq:product id="d2mach1"/>
+            <iq:product id="d2mach2"/>
+            <iq:product id="descentg2"/>
+            <iq:product id="descentmk343mm"/>
+            <iq:product id="descentmk351mm"/>
+            <iq:product id="marq2"/>
+            <iq:product id="marq2aviator"/>
+        </iq:products>
+        <iq:permissions>
+            <iq:uses-permission id="SensorHistory"/>
+        </iq:permissions>
+        <iq:languages>
+            <iq:language>eng</iq:language>
+        </iq:languages>
+        <iq:barrels>
+        </iq:barrels>
+    </iq:application>
+</iq:manifest>

@@ -1,0 +1,25 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- White face backdrop -->
+  <rect width="48" height="48" rx="10" fill="#F4F4F2"/>
+  <circle cx="24" cy="24" r="21.5" stroke="#D8D8D4" stroke-width="1.5"/>
+
+  <!-- Three orange flip cards: HH MM (big) and SS (small) -->
+  <g>
+    <rect x="6"  y="18" width="14" height="16" rx="2.5" fill="#F08A1E"/>
+    <rect x="21" y="18" width="14" height="16" rx="2.5" fill="#F08A1E"/>
+    <rect x="36" y="22" width="7"  height="12" rx="1.8" fill="#F2A23E"/>
+  </g>
+
+  <!-- Card hinge lines -->
+  <g stroke="#16140F" stroke-width="0.8" opacity="0.5">
+    <line x1="6"  y1="26" x2="20" y2="26"/>
+    <line x1="21" y1="26" x2="35" y2="26"/>
+  </g>
+
+  <!-- Black digits "10 08" -->
+  <g fill="#16140F" font-family="Arial, sans-serif" font-weight="bold" font-size="12" text-anchor="middle">
+    <text x="13" y="30.5">10</text>
+    <text x="28" y="30.5">08</text>
+  </g>
+  <text x="39.5" y="31" fill="#16140F" font-family="Arial, sans-serif" font-weight="bold" font-size="7" text-anchor="middle">36</text>
+</svg>

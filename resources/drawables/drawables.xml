@@ -1,0 +1,46 @@
+<drawables xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
+    <bitmap id="LauncherIcon" filename="launcher_icon.svg" dithering="none" />
+
+    <!-- Complication icons. Black variant is used by the Light theme, white by the
+         Dark theme (Garmin can't recolour a bitmap at runtime, so we ship both). -->
+    <bitmap id="IconAlarmBlack"     filename="alarm-black.svg"     dithering="none" />
+    <bitmap id="IconAlarmWhite"     filename="alarm-white.svg"     dithering="none" />
+    <bitmap id="IconBatteryBlack"   filename="battery-black.svg"   dithering="none" />
+    <bitmap id="IconBatteryWhite"   filename="battery-white.svg"   dithering="none" />
+    <bitmap id="IconBellBlack"      filename="bell-black.svg"      dithering="none" />
+    <bitmap id="IconBellWhite"      filename="bell-white.svg"      dithering="none" />
+    <bitmap id="IconBoltBlack"      filename="bolt-black.svg"      dithering="none" />
+    <bitmap id="IconBoltWhite"      filename="bolt-white.svg"      dithering="none" />
+    <bitmap id="IconFlameBlack"     filename="flame-black.svg"     dithering="none" />
+    <bitmap id="IconFlameWhite"     filename="flame-white.svg"     dithering="none" />
+    <bitmap id="IconFootprintBlack" filename="footprint-black.svg" dithering="none" />
+    <bitmap id="IconFootprintWhite" filename="footprint-white.svg" dithering="none" />
+    <bitmap id="IconHeartBlack"     filename="heart-black.svg"     dithering="none" />
+    <bitmap id="IconHeartWhite"     filename="heart-white.svg"     dithering="none" />
+    <bitmap id="IconRouteBlack"     filename="route-black.svg"     dithering="none" />
+    <bitmap id="IconRouteWhite"     filename="route-white.svg"     dithering="none" />
+    <bitmap id="IconStairsBlack"    filename="stairs-black.svg"    dithering="none" />
+    <bitmap id="IconStairsWhite"    filename="stairs-white.svg"    dithering="none" />
+    <bitmap id="IconSunBlack"       filename="sun-black.svg"       dithering="none" />
+    <bitmap id="IconSunWhite"       filename="sun-white.svg"       dithering="none" />
+
+    <!-- Weather condition icons, mapped from Weather.getCurrentConditions().condition -->
+    <bitmap id="IconSunnyBlack"        filename="sunny-black.svg"         dithering="none" />
+    <bitmap id="IconSunnyWhite"        filename="sunny-white.svg"         dithering="none" />
+    <bitmap id="IconPartlyCloudyBlack" filename="partly-cloudy-black.svg" dithering="none" />
+    <bitmap id="IconPartlyCloudyWhite" filename="partly-cloudy-white.svg" dithering="none" />
+    <bitmap id="IconCloudyBlack"       filename="cloudy-black.svg"        dithering="none" />
+    <bitmap id="IconCloudyWhite"       filename="cloudy-white.svg"        dithering="none" />
+    <bitmap id="IconRainBlack"         filename="rain-black.svg"          dithering="none" />
+    <bitmap id="IconRainWhite"         filename="rain-white.svg"          dithering="none" />
+    <bitmap id="IconSnowBlack"         filename="snow-black.svg"          dithering="none" />
+    <bitmap id="IconSnowWhite"         filename="snow-white.svg"          dithering="none" />
+    <bitmap id="IconThunderstormBlack" filename="thunderstorm-black.svg"  dithering="none" />
+    <bitmap id="IconThunderstormWhite" filename="thunderstorm-white.svg"  dithering="none" />
+    <bitmap id="IconWindyBlack"        filename="windy-black.svg"         dithering="none" />
+    <bitmap id="IconWindyWhite"        filename="windy-white.svg"         dithering="none" />
+    <bitmap id="IconFogBlack"          filename="fog-black.svg"           dithering="none" />
+    <bitmap id="IconFogWhite"          filename="fog-white.svg"           dithering="none" />
+    <bitmap id="IconWintryMixBlack"    filename="wintry-mix-black.svg"    dithering="none" />
+    <bitmap id="IconWintryMixWhite"    filename="wintry-mix-white.svg"    dithering="none" />
+</drawables>

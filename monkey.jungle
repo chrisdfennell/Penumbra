@@ -1,0 +1,6 @@
+project.manifest = manifest.xml
+
+# Penumbra draws the big digits with the built-in numeric system fonts and lays
+# everything out relative to dc.getWidth()/getHeight(), so a single resource set
+# scales across every supported round panel - no per-resolution font assets needed.
+base.resourcePath = resources

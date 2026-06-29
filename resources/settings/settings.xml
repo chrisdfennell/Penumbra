@@ -1,0 +1,35 @@
+<settings>
+    <!-- Light / Dark theme -->
+    <setting propertyKey="@Properties.Theme" title="@Strings.ThemeTitle" prompt="@Strings.ThemePrompt">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.ThemeLight</listEntry>
+            <listEntry value="1">@Strings.ThemeDark</listEntry>
+        </settingConfig>
+    </setting>
+
+    <!-- Card accent colour -->
+    <setting propertyKey="@Properties.Accent" title="@Strings.AccentTitle" prompt="@Strings.AccentPrompt">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.AccentOrange</listEntry>
+            <listEntry value="1">@Strings.AccentBlue</listEntry>
+            <listEntry value="2">@Strings.AccentGreen</listEntry>
+            <listEntry value="3">@Strings.AccentRed</listEntry>
+            <listEntry value="4">@Strings.AccentYellow</listEntry>
+        </settingConfig>
+    </setting>
+
+    <!-- Show seconds -->
+    <setting propertyKey="@Properties.ShowSeconds" title="@Strings.ShowSecondsTitle" prompt="@Strings.ShowSecondsPrompt">
+        <settingConfig type="boolean" />
+    </setting>
+
+    <!-- Show date -->
+    <setting propertyKey="@Properties.ShowDate" title="@Strings.ShowDateTitle" prompt="@Strings.ShowDatePrompt">
+        <settingConfig type="boolean" />
+    </setting>
+
+    <!-- Show weather -->
+    <setting propertyKey="@Properties.ShowWeather" title="@Strings.ShowWeatherTitle" prompt="@Strings.ShowWeatherPrompt">
+        <settingConfig type="boolean" />
+    </setting>
+</settings>

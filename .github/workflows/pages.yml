@@ -1,0 +1,59 @@
+name: Deploy simulator to GitHub Pages
+
+# Publishes the browser-based watch face simulator to GitHub Pages on every push
+# to main. Only a curated subset of files is deployed -- NOT the repo root -- so
+# the Monkey C source, the developer key, and build tooling are never served.
+#
+# ── One-time setup ────────────────────────────────────────────────────────────
+# Settings → Pages → Build and deployment → Source: "GitHub Actions".
+# The site will be served at https://<owner>.github.io/<repo>/
+# ──────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; cancel in-progress runs for newer pushes.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Assemble site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Stage curated simulator files
+        run: |
+          set -e
+          mkdir -p _site
+          # The only files the simulator page actually loads. Add new simulator
+          # assets here (e.g. images) if index.html starts referencing them.
+          for f in index.html styles.css app.js binary.js; do
+            cp "$f" _site/
+          done
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
