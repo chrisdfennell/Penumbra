@@ -11,7 +11,7 @@ body:
     attributes:
       label: What happened?
       description: Describe the bug and what you expected to happen instead.
-      placeholder: In Pure Binary mode the seconds column stops updating in always-on...
+      placeholder: In Dark theme the body battery icon overlaps the seconds...
     validations:
       required: true
   - type: input
@@ -41,13 +41,12 @@ body:
     attributes:
       label: Area
       options:
-        - Binary grid / time (BCD or Pure)
-        - Always-on / AOD / burn-in
-        - Data fields (steps, HR, battery, solar, etc.)
-        - HR sparkline graph
-        - Date / status indicators (phone, notifications)
-        - Settings (themes, slots, grid mode)
-        - Simulator (app.js / index.html)
+        - Time digits / layout
+        - Themes (Light / Dark) or accent colour
+        - Complications (HR, body battery, steps, distance, calories, floors, battery)
+        - Weather (temperature, hi/lo, condition icon)
+        - Date / alarms / notifications
+        - Settings
         - Other / not sure
     validations:
       required: false

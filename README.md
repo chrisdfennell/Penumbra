@@ -68,6 +68,11 @@ git push origin v1.0.0
 The compile/release jobs need a `GARMIN_DEVELOPER_KEY` repository secret (your
 base64-encoded developer key) — see `.github/workflows/release.yml` for setup.
 
+## Contributing
+
+Bug reports and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md). Security issues: see [SECURITY.md](SECURITY.md).
+
 ## License
 
-© Christopher Fennell. All rights reserved.
+[MIT](LICENSE) © 2026 Christopher Fennell

@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest a new data field, theme, grid mode, or improvement
+description: Suggest a new complication, theme, accent, or improvement
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
