@@ -24,6 +24,12 @@
     <bitmap id="IconSunBlack"       filename="sun-black.svg"       dithering="none" />
     <bitmap id="IconSunWhite"       filename="sun-white.svg"       dithering="none" />
 
+    <!-- Up/down carets drawn above the weather high/low temperatures. -->
+    <bitmap id="IconArrowUpBlack"   filename="arrow-up-black.svg"   dithering="none" />
+    <bitmap id="IconArrowUpWhite"   filename="arrow-up-white.svg"   dithering="none" />
+    <bitmap id="IconArrowDownBlack" filename="arrow-down-black.svg" dithering="none" />
+    <bitmap id="IconArrowDownWhite" filename="arrow-down-white.svg" dithering="none" />
+
     <!-- Weather condition icons, mapped from Weather.getCurrentConditions().condition -->
     <bitmap id="IconSunnyBlack"        filename="sunny-black.svg"         dithering="none" />
     <bitmap id="IconSunnyWhite"        filename="sunny-white.svg"         dithering="none" />

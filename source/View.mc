@@ -58,6 +58,8 @@ class PenumbraView extends WatchUi.WatchFace {
             "route"     => WatchUi.loadResource(Rez.Drawables.IconRouteBlack),
             "stairs"    => WatchUi.loadResource(Rez.Drawables.IconStairsBlack),
             "sun"       => WatchUi.loadResource(Rez.Drawables.IconSunBlack),
+            "arrow-up"   => WatchUi.loadResource(Rez.Drawables.IconArrowUpBlack),
+            "arrow-down" => WatchUi.loadResource(Rez.Drawables.IconArrowDownBlack),
             "sunny"        => WatchUi.loadResource(Rez.Drawables.IconSunnyBlack),
             "partly-cloudy" => WatchUi.loadResource(Rez.Drawables.IconPartlyCloudyBlack),
             "cloudy"       => WatchUi.loadResource(Rez.Drawables.IconCloudyBlack),
@@ -79,6 +81,8 @@ class PenumbraView extends WatchUi.WatchFace {
             "route"     => WatchUi.loadResource(Rez.Drawables.IconRouteWhite),
             "stairs"    => WatchUi.loadResource(Rez.Drawables.IconStairsWhite),
             "sun"       => WatchUi.loadResource(Rez.Drawables.IconSunWhite),
+            "arrow-up"   => WatchUi.loadResource(Rez.Drawables.IconArrowUpWhite),
+            "arrow-down" => WatchUi.loadResource(Rez.Drawables.IconArrowDownWhite),
             "sunny"        => WatchUi.loadResource(Rez.Drawables.IconSunnyWhite),
             "partly-cloudy" => WatchUi.loadResource(Rez.Drawables.IconPartlyCloudyWhite),
             "cloudy"       => WatchUi.loadResource(Rez.Drawables.IconCloudyWhite),
@@ -275,24 +279,87 @@ class PenumbraView extends WatchUi.WatchFace {
                         Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
 
-        // Weather line below the date, if available and enabled. The icon reflects
-        // the actual current sky condition.
+        // Weather below the date, if available and enabled. The condition icon
+        // reflects the actual current sky; the daily high/low are each capped with a
+        // caret (up for the high, down for the low).
         if (mShowWeather && (Toybox has :Weather)) {
             var cond = Weather.getCurrentConditions();
             if (cond != null) {
-                var wx = weatherTempString(cond);
-                if (wx != null) {
-                    var iconName = (cond.condition != null) ? weatherIconName(cond.condition) : "sun";
-                    var wy = (h * 0.265).toNumber();
-                    var www = dc.getTextWidthInPixels(wx, Graphics.FONT_XTINY);
-                    var wBmp = icon(iconName);
-                    var wIconW = (wBmp != null) ? wBmp.getWidth() : 0;
-                    drawIcon(dc, iconName, (cx - www / 2 - wIconW / 2).toNumber(), wy);
-                    dc.setColor(mText, Graphics.COLOR_TRANSPARENT);
-                    dc.drawText(cx + (wIconW / 2).toNumber(), wy, Graphics.FONT_XTINY, wx,
-                                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-                }
+                drawWeatherRow(dc, w, h, cx, cond);
             }
+        }
+    }
+
+    // The weather row, centred on cx: [condition icon] [current temp]  ^[high]  v[low].
+    // The high/low carets sit just above their numbers.
+    private function drawWeatherRow(dc as Dc, w as Number, h as Number, cx as Number,
+                                    cond as Weather.CurrentConditions) as Void {
+        if (cond.temperature == null) { return; }
+
+        var metric = System.getDeviceSettings().distanceUnits == System.UNIT_METRIC;
+        var t = cond.temperature.toFloat();          // Celsius
+        var hi = cond.highTemperature;
+        var lo = cond.lowTemperature;
+        if (!metric) {
+            t = t * 9.0 / 5.0 + 32.0;
+            if (hi != null) { hi = (hi.toFloat() * 9.0 / 5.0 + 32.0).toNumber(); }
+            if (lo != null) { lo = (lo.toFloat() * 9.0 / 5.0 + 32.0).toNumber(); }
+        }
+        var curStr = t.format("%d") + "°";
+        var hiStr = (hi != null) ? hi.format("%d") : null;
+        var loStr = (lo != null) ? lo.format("%d") : null;
+
+        var font = Graphics.FONT_XTINY;
+        var wy   = (h * 0.315).toNumber();
+        var gap  = (w * 0.030).toNumber();
+
+        var iconName = (cond.condition != null) ? weatherIconName(cond.condition) : "sun";
+        var condBmp  = icon(iconName);
+        var condW    = (condBmp != null) ? condBmp.getWidth() : 0;
+
+        var curW = dc.getTextWidthInPixels(curStr, font);
+        var hiW  = (hiStr != null) ? dc.getTextWidthInPixels(hiStr, font) : 0;
+        var loW  = (loStr != null) ? dc.getTextWidthInPixels(loStr, font) : 0;
+
+        var total = condW + gap + curW;
+        if (hiStr != null) { total += gap + hiW; }
+        if (loStr != null) { total += gap + loW; }
+
+        var x = cx - total / 2;
+
+        // condition icon
+        drawIcon(dc, iconName, (x + condW / 2).toNumber(), wy);
+        x += condW + gap;
+
+        // current temperature
+        dc.setColor(mText, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(x, wy, font, curStr, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+        x += curW;
+
+        // high, capped with an up caret
+        if (hiStr != null) {
+            x += gap;
+            drawTempWithArrow(dc, x, wy, "arrow-up", hiStr, hiW, font);
+            x += hiW;
+        }
+        // low, capped with a down caret
+        if (loStr != null) {
+            x += gap;
+            drawTempWithArrow(dc, x, wy, "arrow-down", loStr, loW, font);
+            x += loW;
+        }
+    }
+
+    // Draw a temperature number left-justified at (x, y) with a caret centred above it.
+    private function drawTempWithArrow(dc as Dc, x as Number, y as Number, arrowName as String,
+                                       numStr as String, numW as Number, font as FontType) as Void {
+        dc.setColor(mText, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(x, y, font, numStr, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+        var bmp = icon(arrowName);
+        if (bmp != null) {
+            var ax = (x + numW / 2 - bmp.getWidth() / 2).toNumber();
+            var ay = (y - dc.getFontHeight(font) / 2 - bmp.getHeight() + 4).toNumber();
+            dc.drawBitmap(ax, ay, bmp);
         }
     }
 
@@ -385,25 +452,6 @@ class PenumbraView extends WatchUi.WatchFace {
     private function floorsString(mon as ActivityMonitor.Info or Null) as String {
         if (mon == null || !(mon has :floorsClimbed) || mon.floorsClimbed == null) { return "--"; }
         return mon.floorsClimbed.format("%d");
-    }
-
-    // Temperature line ("72°  75/60") from an already-fetched conditions object.
-    private function weatherTempString(cond as Weather.CurrentConditions) as String or Null {
-        if (cond.temperature == null) { return null; }
-        var metric = System.getDeviceSettings().distanceUnits == System.UNIT_METRIC;
-        var t = cond.temperature.toFloat();        // Celsius
-        var hi = cond.highTemperature;
-        var lo = cond.lowTemperature;
-        if (!metric) {
-            t = t * 9.0 / 5.0 + 32.0;
-            if (hi != null) { hi = (hi.toFloat() * 9.0 / 5.0 + 32.0).toNumber(); }
-            if (lo != null) { lo = (lo.toFloat() * 9.0 / 5.0 + 32.0).toNumber(); }
-        }
-        var s = t.format("%d") + "°";
-        if (hi != null && lo != null) {
-            s = s + "  " + hi.format("%d") + "/" + lo.format("%d");
-        }
-        return s;
     }
 
     // Map a Weather condition enum to one of our condition icon names.
