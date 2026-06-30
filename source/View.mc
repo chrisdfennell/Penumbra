@@ -303,10 +303,12 @@ class PenumbraView extends WatchUi.WatchFace {
         var mon = ActivityMonitor.getInfo();
         var settings = System.getDeviceSettings();
 
-        // Upper flanks: alarms (left), notifications (right).
-        drawCell(dc, (w * 0.225).toNumber(), (h * 0.235).toNumber(),
+        // Upper flanks: alarms (left), notifications (right). Dropped into the empty
+        // band between the weather line (~0.30) and the time cards (~0.41) so they sit
+        // centred in the open flank space instead of crowding the date/weather header.
+        drawCell(dc, (w * 0.225).toNumber(), (h * 0.35).toNumber(),
                  "alarm", numOrDash(settings.alarmCount));
-        drawCell(dc, (w * 0.775).toNumber(), (h * 0.235).toNumber(),
+        drawCell(dc, (w * 0.775).toNumber(), (h * 0.35).toNumber(),
                  "bell", numOrDash(settings.notificationCount));
 
         // Heart rate tucks into the margin left of the hours card; body battery into
