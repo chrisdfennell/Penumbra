@@ -4,6 +4,16 @@ All notable changes to Penumbra are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-06-30
+
+### Changed
+- **Alarm and notification complications** moved down into the open flank space, centred
+  between the weather line and the time cards, so they no longer crowd the date/weather
+  header.
+- **Launcher icon** redrawn as the Penumbra eclipse (a light/shadow split disc with an
+  accent rim) — matching the store branding, and built from shapes only so it rasterises
+  cleanly in CI.
+
 ## [1.0.0] - 2026-06-29
 
 ### Added
