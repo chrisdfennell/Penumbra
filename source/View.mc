@@ -22,6 +22,26 @@ class PenumbraView extends WatchUi.WatchFace {
     private var mShowSeconds as Boolean = true;
     private var mShowDate as Boolean = true;
     private var mShowWeather as Boolean = true;
+    private var mShowArc as Boolean = true;  // step-goal eclipse ring
+    private var mShowHrGraph as Boolean = false;  // HR trend sparkline (lower band)
+
+    // Configurable complication slots. Each holds a data-type id (DATA_* below).
+    private var mSlotML as Number = 0;  // margin left  - default Heart Rate
+    private var mSlotMR as Number = 1;  // margin right - default Body Battery
+    private var mSlotLL as Number = 4;  // lower left   - default Distance
+    private var mSlotLC as Number = 3;  // lower centre - default Calories
+    private var mSlotLR as Number = 5;  // lower right  - default Floors
+
+    // Data types a slot can show. Mirrored in settings.xml list entries.
+    private const DATA_HR       = 0;
+    private const DATA_BB       = 1;
+    private const DATA_STEPS    = 2;
+    private const DATA_CALORIES = 3;
+    private const DATA_DISTANCE = 4;
+    private const DATA_FLOORS   = 5;
+    private const DATA_ALARMS   = 6;
+    private const DATA_NOTIFS   = 7;
+    private const DATA_NONE     = 8;
 
     // ---- Resolved theme colours (set in onUpdate from mTheme) ------------------
     private var mBg as Number = Graphics.COLOR_WHITE;
@@ -30,6 +50,15 @@ class PenumbraView extends WatchUi.WatchFace {
     private var mMuted as Number = 0x888888;             // complication labels
     private var mIcon as Number = 0x505050;              // complication icons
     private var mAccent as Number = 0xF08A1E;            // card colour
+
+    // ---- Power state + seconds geometry ---------------------------------------
+    // mLowPower tracks sleep/always-on; the seconds fields are cached each full
+    // render so onPartialUpdate can retick just the seconds glyph in place.
+    private var mLowPower as Boolean = false;
+    private var mSecCx as Number = 0;
+    private var mSecCy as Number = 0;
+    private var mSecFont as FontType = Graphics.FONT_NUMBER_MILD;
+    private var mHasSecGeom as Boolean = false;
 
     // Accent palette, indexed by the Accent property.
     private const ACCENTS = [0xF08A1E, 0x2E7DE0, 0x2EA84F, 0xE23B2E, 0xF2C400];
@@ -101,6 +130,14 @@ class PenumbraView extends WatchUi.WatchFace {
         return d[name] as WatchUi.BitmapResource?;
     }
 
+    // The bitmap for an icon in the OPPOSITE theme colour, for icons that sit on
+    // an inverted (ink-filled) panel — white icons on a black panel in the Light
+    // theme, black icons on a white panel in the Dark theme.
+    private function iconInverted(name as String) as WatchUi.BitmapResource? {
+        var d = (mTheme == 1) ? mIconBlack : mIconWhite;
+        return d[name] as WatchUi.BitmapResource?;
+    }
+
     // Draw an icon centred on (cx, cy) at its native size.
     private function drawIcon(dc as Dc, name as String, cx as Number, cy as Number) as Void {
         var bmp = icon(name);
@@ -119,6 +156,13 @@ class PenumbraView extends WatchUi.WatchFace {
         mShowSeconds = propBool("ShowSeconds", true);
         mShowDate    = propBool("ShowDate", true);
         mShowWeather = propBool("ShowWeather", true);
+        mShowArc     = propBool("ShowGoalArc", true);
+        mShowHrGraph = propBool("ShowHrGraph", false);
+        mSlotML      = propNumber("SlotML", 0);
+        mSlotMR      = propNumber("SlotMR", 1);
+        mSlotLL      = propNumber("SlotLL", 4);
+        mSlotLC      = propNumber("SlotLC", 3);
+        mSlotLR      = propNumber("SlotLR", 5);
         if (mAccentIdx < 0 || mAccentIdx >= ACCENTS.size()) { mAccentIdx = 0; }
     }
 
@@ -144,13 +188,134 @@ class PenumbraView extends WatchUi.WatchFace {
 
         if (dc has :setAntiAlias) { dc.setAntiAlias(true); }
 
+        // Always-on (AMOLED) low-power: draw a minimal, dim, burn-in-safe face -
+        // just HH:MM in a muted grey on black - to cut lit pixels and save battery.
+        if (mLowPower && requiresBurnInProtection()) {
+            drawLowPowerFace(dc, w, h, cx);
+            return;
+        }
+
         // Clear to background.
         dc.setColor(mBg, mBg);
         dc.clear();
 
+        if (mShowArc) { drawGoalArc(dc, w, h, cx); }
         drawTopCluster(dc, w, h, cx);
         drawTimeCards(dc, w, h, cx);
         drawComplications(dc, w, h, cx);
+    }
+
+    // The eclipse ring: a faint full "penumbra" track hugging the bezel, with the
+    // portion of today's step goal that's complete lit in the accent colour,
+    // sweeping clockwise from 12 o'clock like a shadow crossing the disc.
+    private function drawGoalArc(dc as Dc, w as Number, h as Number, cx as Number) as Void {
+        var mon = ActivityMonitor.getInfo();
+        if (mon == null) { return; }
+
+        var steps = (mon.steps != null) ? mon.steps : 0;
+        var goal = 10000;
+        if (mon has :stepGoal && mon.stepGoal != null && mon.stepGoal > 0) {
+            goal = mon.stepGoal;
+        }
+        var frac = steps.toFloat() / goal.toFloat();
+        if (frac < 0.0) { frac = 0.0; }
+        if (frac > 1.0) { frac = 1.0; }
+
+        var cy  = h / 2;
+        var pen = (w * 0.022).toNumber();
+        if (pen < 3) { pen = 3; }
+        var minDim = (w < h) ? w : h;
+        var r = minDim / 2 - pen / 2 - (w * 0.010).toNumber();
+
+        dc.setPenWidth(pen);
+
+        // Faint full track (the shadow).
+        var track = (mTheme == 1) ? 0x2A2A2A : 0xDCDCDC;
+        dc.setColor(track, Graphics.COLOR_TRANSPARENT);
+        dc.drawCircle(cx, cy, r);
+
+        // Lit progress arc, clockwise from the top.
+        if (frac >= 0.999) {
+            dc.setColor(mAccent, Graphics.COLOR_TRANSPARENT);
+            dc.drawCircle(cx, cy, r);
+        } else if (frac > 0.0) {
+            // Clockwise from 12 o'clock (90 deg). Keep the end angle in 0..360.
+            var endDeg = 90.0 - frac * 360.0;
+            if (endDeg < 0.0) { endDeg += 360.0; }
+            dc.setColor(mAccent, Graphics.COLOR_TRANSPARENT);
+            dc.drawArc(cx, cy, r, Graphics.ARC_CLOCKWISE, 90, endDeg.toNumber());
+        }
+
+        dc.setPenWidth(1);
+    }
+
+    // True on AMOLED panels that need burn-in protection in always-on mode.
+    private function requiresBurnInProtection() as Boolean {
+        var s = System.getDeviceSettings();
+        if (s has :requiresBurnInProtection) {
+            return s.requiresBurnInProtection;
+        }
+        return false;
+    }
+
+    // Sleep/wake hooks: track power state and repaint. In low power we stop the
+    // per-second update (see onPartialUpdate) and, on AMOLED, switch to the dim
+    // minimal face.
+    function onEnterSleep() as Void {
+        mLowPower = true;
+        WatchUi.requestUpdate();
+    }
+
+    function onExitSleep() as Void {
+        mLowPower = false;
+        WatchUi.requestUpdate();
+    }
+
+    // Retick only the seconds each second while awake. Kept tiny - clip to the
+    // seconds glyph, clear it, redraw - to stay inside the partial-update power
+    // budget. Skipped in low power so seconds don't tick in always-on.
+    function onPartialUpdate(dc as Dc) as Void {
+        if (!mShowSeconds || mLowPower || !mHasSecGeom) { return; }
+        if (dc has :setAntiAlias) { dc.setAntiAlias(true); }
+
+        var ss = pad2(System.getClockTime().sec);
+        var tw = dc.getTextWidthInPixels(ss, mSecFont);
+        var fh = dc.getFontHeight(mSecFont);
+        var cw = tw + 8;
+        var ch = fh + 4;
+        var x0 = mSecCx - cw / 2;
+        var y0 = mSecCy - ch / 2;
+
+        dc.setClip(x0, y0, cw, ch);
+        dc.setColor(mBg, mBg);
+        dc.clear();
+        dc.setColor(mAccent, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(mSecCx, mSecCy, mSecFont, ss,
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.clearClip();
+    }
+
+    // The minimal always-on face: dim HH:MM centred on black, drifting a few
+    // pixels each minute so no pixel stays lit in one spot (burn-in guard).
+    private function drawLowPowerFace(dc as Dc, w as Number, h as Number, cx as Number) as Void {
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.clear();
+
+        var clock = System.getClockTime();
+        var hour = clock.hour;
+        if (!System.getDeviceSettings().is24Hour) {
+            hour = hour % 12;
+            if (hour == 0) { hour = 12; }
+        }
+        var hhmm = pad2(hour) + ":" + pad2(clock.min);
+
+        var idx = pickNumberFontIndex(dc, "00:00", (w * 0.72).toNumber(), (h * 0.30).toNumber());
+        var ox = (clock.min % 6) - 3;            // -3..+2 px horizontal drift
+        var oy = ((clock.min / 6) % 6) - 3;      // -3..+2 px vertical drift
+
+        dc.setColor(0x646464, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx + ox, (h * 0.50).toNumber() + oy, NUMBER_FONTS[idx], hhmm,
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     private function resolveTheme() as Void {
@@ -186,16 +351,20 @@ class PenumbraView extends WatchUi.WatchFace {
         var mm = pad2(clock.min);
         var ss = pad2(clock.sec);
 
-        var showSec = mShowSeconds;
+        // Reserve the seconds slot whenever the setting is on so HH/MM stay put,
+        // but only actually paint the seconds while awake - in low power we blank
+        // them (they'd only tick per minute) and let onPartialUpdate drive them.
+        var reserveSec = mShowSeconds;
+        var drawSec    = mShowSeconds && !mLowPower;
 
         // Card geometry, proportional to the screen.
         var cardH  = (h * 0.175).toNumber();
         var mainW  = (w * 0.225).toNumber();
-        var ssW    = (w * 0.135).toNumber();
+        var ssW    = (w * 0.115).toNumber();
         var gap    = (w * 0.020).toNumber();
         var radius = (cardH * 0.16).toNumber();
 
-        var totalW = showSec ? (mainW * 2 + ssW + gap * 2) : (mainW * 2 + gap);
+        var totalW = reserveSec ? (mainW * 2 + ssW + gap * 2) : (mainW * 2 + gap);
         var startX = cx - totalW / 2;
         var cardTop = (h * 0.50).toNumber() - cardH / 2;
 
@@ -206,20 +375,29 @@ class PenumbraView extends WatchUi.WatchFace {
         var ssH = (cardH * 0.62).toNumber();
         var ssTop = cardTop + (cardH - ssH) / 2;
 
-        // Pick the largest numeric font that fits the main card, then drop the
-        // seconds to a smaller tier so they read clearly smaller than HH/MM.
+        // Pick the largest numeric font that fits the main card (unchanged big
+        // fallback), then size the seconds to their own smaller box from the
+        // extended ladder - clamped at least one tier below the main digits so
+        // they read clearly subordinate to HH/MM.
         var mainIdx  = pickNumberFontIndex(dc, "00", (mainW * 0.84).toNumber(), (cardH * 0.84).toNumber());
         var mainFont = NUMBER_FONTS[mainIdx];
-        var ssIdx    = mainIdx + 1;
-        if (ssIdx >= NUMBER_FONTS.size()) { ssIdx = NUMBER_FONTS.size() - 1; }
-        var ssFont   = NUMBER_FONTS[ssIdx];
+        var ssIdx    = pickFontIndex(dc, SEC_FONTS, "00", (ssW * 0.90).toNumber(), (ssH * 0.90).toNumber());
+        if (ssIdx < mainIdx + 1) { ssIdx = mainIdx + 1; }
+        if (ssIdx >= SEC_FONTS.size()) { ssIdx = SEC_FONTS.size() - 1; }
+        var ssFont   = SEC_FONTS[ssIdx];
+
+        // Cache the seconds centre + font so onPartialUpdate can retick in place.
+        mSecCx = ssX + ssW / 2;
+        mSecCy = ssTop + ssH / 2;
+        mSecFont = ssFont;
+        mHasSecGeom = reserveSec;
 
         // Main HH / MM cards.
         drawCard(dc, hhX, cardTop, mainW, cardH, radius, hh, mainFont, mInk);
         drawCard(dc, mmX, cardTop, mainW, cardH, radius, mm, mainFont, mInk);
 
         // Smaller seconds card, vertically centred on the same row.
-        if (showSec) {
+        if (drawSec) {
             drawCard(dc, ssX, ssTop, ssW, ssH, (radius * 0.8).toNumber(), ss, ssFont, mAccent);
         }
     }
@@ -246,7 +424,7 @@ class PenumbraView extends WatchUi.WatchFace {
             var battW = (battBmp != null) ? battBmp.getWidth() : 0;
             // Icon to the left of the percentage, the pair centred on cx.
             drawIcon(dc, "battery", (cx - bsw / 2 - battW / 2).toNumber(), battY);
-            dc.setColor(mMuted, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(batteryColor(batt.toNumber()), Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx + (battW / 2).toNumber(), battY, Graphics.FONT_XTINY, battStr,
                         Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
@@ -255,7 +433,9 @@ class PenumbraView extends WatchUi.WatchFace {
             var now = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
             var dateStr = now.day_of_week + " " + now.day.format("%02d");
 
-            var font = Graphics.FONT_SMALL;
+            // One size down from the old FONT_SMALL: the date is glanced at far
+            // less than the time, so it shouldn't be the second-loudest element.
+            var font = Graphics.FONT_TINY;
             var tw = dc.getTextWidthInPixels(dateStr, font);
             var padX = (w * 0.04).toNumber();
             var pillW = tw + padX * 2;
@@ -336,31 +516,46 @@ class PenumbraView extends WatchUi.WatchFace {
         dc.drawText(x, wy, font, curStr, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
         x += curW;
 
-        // high, capped with an up caret
+        // high, capped with a red up caret (status-palette red, not pure red)
         if (hiStr != null) {
             x += gap;
-            drawTempWithArrow(dc, x, wy, "arrow-up", hiStr, hiW, font);
+            drawTempWithArrow(dc, x, wy, true, COL_BAD, hiStr, hiW, font);
             x += hiW;
         }
-        // low, capped with a down caret
+        // low, capped with a blue down caret (status-palette blue)
         if (loStr != null) {
             x += gap;
-            drawTempWithArrow(dc, x, wy, "arrow-down", loStr, loW, font);
+            drawTempWithArrow(dc, x, wy, false, COL_INFO, loStr, loW, font);
             x += loW;
         }
     }
 
-    // Draw a temperature number left-justified at (x, y) with a caret centred above it.
-    private function drawTempWithArrow(dc as Dc, x as Number, y as Number, arrowName as String,
-                                       numStr as String, numW as Number, font as FontType) as Void {
-        dc.setColor(mText, Graphics.COLOR_TRANSPARENT);
+    // Draw a temperature number left-justified at (x, y) with a caret centred above
+    // it. The caret is a filled triangle in `caretColor` (pointing up when
+    // `pointUp` is true, otherwise down) so the high/low markers can be tinted
+    // regardless of the monochrome icon theme. The number itself is muted so the
+    // current temperature stays the loudest part of the row.
+    private function drawTempWithArrow(dc as Dc, x as Number, y as Number, pointUp as Boolean,
+                                       caretColor as Number, numStr as String, numW as Number,
+                                       font as FontType) as Void {
+        dc.setColor(mMuted, Graphics.COLOR_TRANSPARENT);
         dc.drawText(x, y, font, numStr, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
-        var bmp = icon(arrowName);
-        if (bmp != null) {
-            var ax = (x + numW / 2 - bmp.getWidth() / 2).toNumber();
-            var ay = (y - dc.getFontHeight(font) / 2 - bmp.getHeight() + 4).toNumber();
-            dc.drawBitmap(ax, ay, bmp);
+
+        var fh = dc.getFontHeight(font);
+        var cw = (fh * 0.34).toNumber();          // caret width
+        var ch = (fh * 0.30).toNumber();          // caret height
+        var cxc = (x + numW / 2).toNumber();      // caret centre x
+        var bottom = (y - fh / 2 + 2).toNumber(); // caret base sits just above the digits
+        var top = bottom - ch;
+
+        var pts;
+        if (pointUp) {
+            pts = [[cxc, top], [cxc - cw / 2, bottom], [cxc + cw / 2, bottom]];
+        } else {
+            pts = [[cxc - cw / 2, top], [cxc + cw / 2, top], [cxc, bottom]];
         }
+        dc.setColor(caretColor, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon(pts);
     }
 
     // ===========================================================================
@@ -370,48 +565,232 @@ class PenumbraView extends WatchUi.WatchFace {
         var mon = ActivityMonitor.getInfo();
         var settings = System.getDeviceSettings();
 
-        // Upper flanks: alarms (left), notifications (right). Pushed out toward the
-        // left/right edges so they clear the centred weather row (which shares this
-        // ~0.315 height) instead of sitting on top of it. The round-screen chord is
-        // wide enough here (~0.02..0.98) to seat them comfortably in from the bezel.
-        drawCell(dc, (w * 0.130).toNumber(), (h * 0.35).toNumber(),
-                 "alarm", numOrDash(settings.alarmCount));
-        drawCell(dc, (w * 0.870).toNumber(), (h * 0.35).toNumber(),
-                 "bell", numOrDash(settings.notificationCount));
+        // Upper flanks: alarms (left), notifications (right). Each sits on an
+        // ink-filled panel that runs off the left/right bezel, separating it from
+        // the centred weather row and making it easy to read at a glance. Lifted to
+        // ~0.30 so the panel's lower edge clears the heart / body-battery icons that
+        // sit beside the time cards at ~0.50. Icons/values use the inverted colours.
+        drawFlankCell(dc, w, -1, (w * 0.130).toNumber(), (h * 0.30).toNumber(),
+                      "alarm", numOrDash(settings.alarmCount));
+        drawFlankCell(dc, w, 1, (w * 0.870).toNumber(), (h * 0.30).toNumber(),
+                      "bell", numOrDash(settings.notificationCount));
 
-        // Heart rate tucks into the margin left of the hours card; body battery into
-        // the margin right of the seconds card. The card row is the widest part of
-        // the round screen, so these fit beside the digits without clipping.
-        drawCell(dc, (w * 0.085).toNumber(), (h * 0.50).toNumber(),
-                 "heart", numOrDash(getHeartRate()));
-        drawCell(dc, (w * 0.915).toNumber(), (h * 0.50).toNumber(),
-                 "bolt", percentOrDash(getBodyBattery()));
+        // Two margin slots beside the digits (widest part of the round screen).
+        drawComplicationSlot(dc, (w * 0.085).toNumber(), (h * 0.50).toNumber(), mSlotML, mon, settings);
+        drawComplicationSlot(dc, (w * 0.915).toNumber(), (h * 0.50).toNumber(), mSlotMR, mon, settings);
 
-        // Lower row under the cards: distance, calories, floors - all on one line.
-        drawCell(dc, (w * 0.275).toNumber(), (h * 0.685).toNumber(),
-                 "route", distanceString(mon, settings));
-        drawCell(dc, (w * 0.50).toNumber(), (h * 0.685).toNumber(),
-                 "flame", numOrDash(mon != null ? mon.calories : null));
-        drawCell(dc, (w * 0.725).toNumber(), (h * 0.685).toNumber(),
-                 "stairs", floorsString(mon));
+        // Lower band: either the three configurable slots, or - in HR trend mode -
+        // a heart-rate sparkline that takes over that strip.
+        if (mShowHrGraph) {
+            drawHrGraph(dc, w, h, cx);
+        } else {
+            drawComplicationSlot(dc, (w * 0.275).toNumber(), (h * 0.685).toNumber(), mSlotLL, mon, settings);
+            drawComplicationSlot(dc, (w * 0.50).toNumber(),  (h * 0.685).toNumber(), mSlotLC, mon, settings);
+            drawComplicationSlot(dc, (w * 0.725).toNumber(), (h * 0.685).toNumber(), mSlotLR, mon, settings);
+        }
 
-        // Steps, bottom centre: foot icon above, number below. Kept clear of the
-        // bottom bezel.
+        // Steps, bottom centre: the same icon-over-value cell as the rest of the
+        // lower band, so the bottom doesn't read heavier than its neighbours.
+        // Kept clear of the bottom bezel.
         var steps = (mon != null) ? mon.steps : null;
         var stepsStr = (steps != null) ? steps.format("%d") : "--";
-        drawIcon(dc, "footprint", cx, (h * 0.795).toNumber());
+        drawCellColored(dc, cx, (h * 0.83).toNumber(), "footprint", stepsStr, mText);
+    }
+
+    // A flank complication seated on an ink-filled panel that runs off the bezel.
+    // `side` is -1 for the left edge, +1 for the right. The panel is filled with
+    // mInk (black on Light, white on Dark); the icon uses the inverted colour set
+    // and the value is drawn in mBg so both stand off the panel.
+    private function drawFlankCell(dc as Dc, w as Number, side as Number,
+                                   cx as Number, cy as Number,
+                                   name as String, value as String) as Void {
+        var font = Graphics.FONT_XTINY;
+        var labelH = dc.getFontHeight(font);
+
+        var bmp = iconInverted(name);
+        var iconW = (bmp != null) ? bmp.getWidth() : 0;
+        var iconH = (bmp != null) ? bmp.getHeight() : 0;
+
+        var valW = dc.getTextWidthInPixels(value, font);
+        var contentW = (iconW > valW) ? iconW : valW;
+
+        var padX   = (w * 0.045).toNumber();
+        var padY   = (labelH * 0.40).toNumber();
+        var radius = (labelH * 0.5).toNumber();
+
+        // Icon centred just above cy, value just below (matches drawCellColored's
+        // symmetric offsets so flanks and cells share one vertical rhythm).
+        var iconCy = (cy - labelH * 0.50).toNumber();
+        var textCy = (cy + labelH * 0.50).toNumber();
+
+        var top    = iconCy - iconH / 2 - padY;
+        var bottom = (textCy + labelH / 2 + padY).toNumber();
+
+        // Anchor the far edge past the bezel so only the inner corners round.
+        var left; var right;
+        if (side < 0) {
+            left  = 0 - radius;
+            right = cx + contentW / 2 + padX;
+        } else {
+            left  = cx - contentW / 2 - padX;
+            right = w + radius;
+        }
+
         dc.setColor(mInk, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, (h * 0.865).toNumber(), Graphics.FONT_MEDIUM, stepsStr,
+        dc.fillRoundedRectangle(left, top, right - left, bottom - top, radius);
+
+        if (bmp != null) {
+            dc.drawBitmap((cx - iconW / 2).toNumber(), (iconCy - iconH / 2).toNumber(), bmp);
+        }
+        dc.setColor(mBg, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, textCy, font, value,
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    // A complication cell: icon on top, value below, centred on (x, y).
-    private function drawCell(dc as Dc, x as Number, y as Number, name as String, value as String) as Void {
+    // Draw a configurable slot: resolve its data-type id to an icon, value, and
+    // (where meaningful) a semantic tint, then render it like any other cell.
+    private function drawComplicationSlot(dc as Dc, x as Number, y as Number, type as Number,
+                                          mon as ActivityMonitor.Info or Null,
+                                          settings as System.DeviceSettings) as Void {
+        var name = "";
+        var value = "--";
+        var color = mText;
+
+        if (type == DATA_HR) {
+            var hr = getHeartRate();
+            name = "heart"; value = numOrDash(hr);
+            if (hr != null) { color = heartColor(hr); }
+        } else if (type == DATA_BB) {
+            var bb = getBodyBattery();
+            name = "bolt"; value = percentOrDash(bb);
+            if (bb != null) { color = bodyBatteryColor(bb); }
+        } else if (type == DATA_STEPS) {
+            name = "footprint";
+            value = (mon != null && mon.steps != null) ? mon.steps.format("%d") : "--";
+        } else if (type == DATA_CALORIES) {
+            name = "flame";
+            value = numOrDash(mon != null ? mon.calories : null);
+        } else if (type == DATA_DISTANCE) {
+            name = "route"; value = distanceString(mon, settings);
+        } else if (type == DATA_FLOORS) {
+            name = "stairs"; value = floorsString(mon);
+        } else if (type == DATA_ALARMS) {
+            name = "alarm"; value = numOrDash(settings.alarmCount);
+        } else if (type == DATA_NOTIFS) {
+            name = "bell"; value = numOrDash(settings.notificationCount);
+        } else {
+            return;  // DATA_NONE (or unknown): leave the slot empty
+        }
+
+        drawCellColored(dc, x, y, name, value, color);
+    }
+
+    // A complication cell: icon on top, value below, centred on (x, y), the value
+    // drawn in the given colour (mText for a plain cell, or a semantic tint).
+    // Icon and value are offset symmetrically so the cluster's visual centre is
+    // exactly (x, y) - the margin pairs then align dead-centre with the time row.
+    private function drawCellColored(dc as Dc, x as Number, y as Number, name as String,
+                                     value as String, color as Number) as Void {
         var labelH = dc.getFontHeight(Graphics.FONT_XTINY);
-        drawIcon(dc, name, x, (y - labelH * 0.45).toNumber());
-        dc.setColor(mText, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(x, y + labelH * 0.55, Graphics.FONT_XTINY, value,
+        drawIcon(dc, name, x, (y - labelH * 0.50).toNumber());
+        dc.setColor(color, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(x, y + labelH * 0.50, Graphics.FONT_XTINY, value,
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
+    // Heart-rate sparkline across the lower band. Samples come from SensorHistory
+    // (newest first); we draw them oldest->newest, left to right - thin, tinted by
+    // the latest zone, over a faint baseline, with a dot on the current reading.
+    private function drawHrGraph(dc as Dc, w as Number, h as Number, cx as Number) as Void {
+        if (!(Toybox has :SensorHistory) || !(Toybox.SensorHistory has :getHeartRateHistory)) {
+            return;
+        }
+        var it = Toybox.SensorHistory.getHeartRateHistory(
+                    {:period => 64, :order => Toybox.SensorHistory.ORDER_NEWEST_FIRST});
+        if (it == null) { return; }
+
+        var vals = [] as Array<Number>;
+        var s = it.next();
+        while (s != null && vals.size() < 64) {
+            if (s.data != null) { vals.add(s.data.toNumber()); }
+            s = it.next();
+        }
+        var n = vals.size();
+        if (n < 2) { return; }
+
+        // Vertical range for scaling.
+        var lo = vals[0];
+        var hi = vals[0];
+        for (var i = 1; i < n; i++) {
+            if (vals[i] < lo) { lo = vals[i]; }
+            if (vals[i] > hi) { hi = vals[i]; }
+        }
+        var span = hi - lo;
+        if (span < 1) { span = 1; }
+
+        var gw = (w * 0.52).toNumber();
+        var gh = (h * 0.085).toNumber();
+        var gx = cx - gw / 2;
+        var gy = (h * 0.64).toNumber();
+
+        // Faint baseline.
+        dc.setPenWidth(1);
+        dc.setColor((mTheme == 1) ? 0x2A2A2A : 0xDCDCDC, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine(gx, gy + gh, gx + gw, gy + gh);
+
+        // Line colour follows the latest zone; stays visible (accent) at rest.
+        var lineCol = heartColor(vals[0]);
+        if (lineCol == mText) { lineCol = mAccent; }
+
+        dc.setPenWidth(2);
+        dc.setColor(lineCol, Graphics.COLOR_TRANSPARENT);
+
+        var prevX = 0;
+        var prevY = 0;
+        for (var i = 0; i < n; i++) {
+            var v = vals[n - 1 - i];               // oldest first, left to right
+            var px = gx + (gw * i) / (n - 1);
+            var py = gy + gh - ((v - lo) * gh) / span;
+            if (i > 0) { dc.drawLine(prevX, prevY, px, py); }
+            prevX = px;
+            prevY = py;
+        }
+
+        // Dot on the current reading (right end).
+        dc.fillCircle(prevX, prevY, (w * 0.012).toNumber());
+        dc.setPenWidth(1);
+    }
+
+    // ---- Semantic colour helpers ----------------------------------------------
+    // Shared status palette (kept independent of the accent so meaning stays fixed).
+    private const COL_GOOD = 0x2EA84F;   // green
+    private const COL_WARN = 0xF2A100;   // amber
+    private const COL_BAD  = 0xE23B2E;   // red
+    private const COL_INFO = 0x2E7DE0;   // blue
+
+    // Device battery: amber under 25%, red under 10%, otherwise the muted default.
+    private function batteryColor(pct as Number) as Number {
+        if (pct <= 10) { return COL_BAD; }
+        if (pct <= 25) { return COL_WARN; }
+        return mMuted;
+    }
+
+    // Body Battery: green when charged, amber mid, red when depleted.
+    private function bodyBatteryColor(v as Number) as Number {
+        if (v >= 50) { return COL_GOOD; }
+        if (v >= 25) { return COL_WARN; }
+        return COL_BAD;
+    }
+
+    // Heart rate tinted by broad zone using fixed thresholds (roughly a 190 bpm
+    // max HR). Kept threshold-based so the face needs no UserProfile permission;
+    // below zone 2 it stays neutral (mText).
+    private function heartColor(hr as Number) as Number {
+        if (hr >= 171) { return COL_BAD; }   // zone 5
+        if (hr >= 152) { return COL_WARN; }  // zone 4
+        if (hr >= 133) { return COL_GOOD; }  // zone 3
+        if (hr >= 114) { return COL_INFO; }  // zone 2
+        return mText;                        // zone 1 / rest
     }
 
     // ===========================================================================
@@ -509,18 +888,36 @@ class PenumbraView extends WatchUi.WatchFace {
     // ===========================================================================
     //  Small helpers
     // ===========================================================================
-    // Numeric system fonts, largest to smallest.
+    // Numeric system fonts, largest to smallest. The main HH/MM digits pick from
+    // this list only, so they keep their big FONT_NUMBER_MILD fallback on large
+    // screens (nothing "fits" the card box and the picker clamps to the last,
+    // biggest-available entry - by design).
     private const NUMBER_FONTS = [Graphics.FONT_NUMBER_THAI_HOT, Graphics.FONT_NUMBER_HOT,
                                   Graphics.FONT_NUMBER_MEDIUM, Graphics.FONT_NUMBER_MILD];
 
+    // The seconds ladder continues past the number fonts into the regular text
+    // fonts (which render digits fine), so the seconds can always drop below the
+    // main digits even when those already sit at FONT_NUMBER_MILD. The first four
+    // entries mirror NUMBER_FONTS so indices stay comparable for the tier clamp.
+    private const SEC_FONTS = [Graphics.FONT_NUMBER_THAI_HOT, Graphics.FONT_NUMBER_HOT,
+                               Graphics.FONT_NUMBER_MEDIUM, Graphics.FONT_NUMBER_MILD,
+                               Graphics.FONT_MEDIUM, Graphics.FONT_XTINY];
+
     private function pickNumberFontIndex(dc as Dc, sample as String, maxW as Number, maxH as Number) as Number {
-        for (var i = 0; i < NUMBER_FONTS.size(); i++) {
-            if (dc.getFontHeight(NUMBER_FONTS[i]) <= maxH &&
-                dc.getTextWidthInPixels(sample, NUMBER_FONTS[i]) <= maxW) {
+        return pickFontIndex(dc, NUMBER_FONTS, sample, maxW, maxH);
+    }
+
+    // Largest font in `fonts` (ordered big -> small) that fits the box; falls
+    // back to the last (smallest) entry when nothing fits.
+    private function pickFontIndex(dc as Dc, fonts as Array, sample as String,
+                                   maxW as Number, maxH as Number) as Number {
+        for (var i = 0; i < fonts.size(); i++) {
+            if (dc.getFontHeight(fonts[i]) <= maxH &&
+                dc.getTextWidthInPixels(sample, fonts[i]) <= maxW) {
                 return i;
             }
         }
-        return NUMBER_FONTS.size() - 1;
+        return fonts.size() - 1;
     }
 
     private function pad2(n as Number) as String {

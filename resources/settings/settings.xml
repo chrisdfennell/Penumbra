@@ -32,4 +32,85 @@
     <setting propertyKey="@Properties.ShowWeather" title="@Strings.ShowWeatherTitle" prompt="@Strings.ShowWeatherPrompt">
         <settingConfig type="boolean" />
     </setting>
+
+    <!-- Show step-goal eclipse ring -->
+    <setting propertyKey="@Properties.ShowGoalArc" title="@Strings.ShowGoalArcTitle" prompt="@Strings.ShowGoalArcPrompt">
+        <settingConfig type="boolean" />
+    </setting>
+
+    <!-- Show HR trend sparkline -->
+    <setting propertyKey="@Properties.ShowHrGraph" title="@Strings.ShowHrGraphTitle" prompt="@Strings.ShowHrGraphPrompt">
+        <settingConfig type="boolean" />
+    </setting>
+
+    <!-- Configurable complication slots -->
+    <setting propertyKey="@Properties.SlotML" title="@Strings.SlotMLTitle" prompt="@Strings.SlotPrompt">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.DataHR</listEntry>
+            <listEntry value="1">@Strings.DataBB</listEntry>
+            <listEntry value="2">@Strings.DataSteps</listEntry>
+            <listEntry value="3">@Strings.DataCalories</listEntry>
+            <listEntry value="4">@Strings.DataDistance</listEntry>
+            <listEntry value="5">@Strings.DataFloors</listEntry>
+            <listEntry value="6">@Strings.DataAlarms</listEntry>
+            <listEntry value="7">@Strings.DataNotifs</listEntry>
+            <listEntry value="8">@Strings.DataNone</listEntry>
+        </settingConfig>
+    </setting>
+
+    <setting propertyKey="@Properties.SlotMR" title="@Strings.SlotMRTitle" prompt="@Strings.SlotPrompt">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.DataHR</listEntry>
+            <listEntry value="1">@Strings.DataBB</listEntry>
+            <listEntry value="2">@Strings.DataSteps</listEntry>
+            <listEntry value="3">@Strings.DataCalories</listEntry>
+            <listEntry value="4">@Strings.DataDistance</listEntry>
+            <listEntry value="5">@Strings.DataFloors</listEntry>
+            <listEntry value="6">@Strings.DataAlarms</listEntry>
+            <listEntry value="7">@Strings.DataNotifs</listEntry>
+            <listEntry value="8">@Strings.DataNone</listEntry>
+        </settingConfig>
+    </setting>
+
+    <setting propertyKey="@Properties.SlotLL" title="@Strings.SlotLLTitle" prompt="@Strings.SlotPrompt">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.DataHR</listEntry>
+            <listEntry value="1">@Strings.DataBB</listEntry>
+            <listEntry value="2">@Strings.DataSteps</listEntry>
+            <listEntry value="3">@Strings.DataCalories</listEntry>
+            <listEntry value="4">@Strings.DataDistance</listEntry>
+            <listEntry value="5">@Strings.DataFloors</listEntry>
+            <listEntry value="6">@Strings.DataAlarms</listEntry>
+            <listEntry value="7">@Strings.DataNotifs</listEntry>
+            <listEntry value="8">@Strings.DataNone</listEntry>
+        </settingConfig>
+    </setting>
+
+    <setting propertyKey="@Properties.SlotLC" title="@Strings.SlotLCTitle" prompt="@Strings.SlotPrompt">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.DataHR</listEntry>
+            <listEntry value="1">@Strings.DataBB</listEntry>
+            <listEntry value="2">@Strings.DataSteps</listEntry>
+            <listEntry value="3">@Strings.DataCalories</listEntry>
+            <listEntry value="4">@Strings.DataDistance</listEntry>
+            <listEntry value="5">@Strings.DataFloors</listEntry>
+            <listEntry value="6">@Strings.DataAlarms</listEntry>
+            <listEntry value="7">@Strings.DataNotifs</listEntry>
+            <listEntry value="8">@Strings.DataNone</listEntry>
+        </settingConfig>
+    </setting>
+
+    <setting propertyKey="@Properties.SlotLR" title="@Strings.SlotLRTitle" prompt="@Strings.SlotPrompt">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.DataHR</listEntry>
+            <listEntry value="1">@Strings.DataBB</listEntry>
+            <listEntry value="2">@Strings.DataSteps</listEntry>
+            <listEntry value="3">@Strings.DataCalories</listEntry>
+            <listEntry value="4">@Strings.DataDistance</listEntry>
+            <listEntry value="5">@Strings.DataFloors</listEntry>
+            <listEntry value="6">@Strings.DataAlarms</listEntry>
+            <listEntry value="7">@Strings.DataNotifs</listEntry>
+            <listEntry value="8">@Strings.DataNone</listEntry>
+        </settingConfig>
+    </setting>
 </settings>
