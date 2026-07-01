@@ -6,6 +6,7 @@ import Toybox.Lang;
 import Toybox.System;
 import Toybox.Time;
 import Toybox.Time.Gregorian;
+import Toybox.UserProfile;
 import Toybox.Weather;
 import Toybox.WatchUi;
 
@@ -396,7 +397,7 @@ class PenumbraView extends WatchUi.WatchFace {
             var battW = (battBmp != null) ? battBmp.getWidth() : 0;
             // Icon to the left of the percentage, the pair centred on cx.
             drawIcon(dc, "battery", (cx - bsw / 2 - battW / 2).toNumber(), battY);
-            dc.setColor(mMuted, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(batteryColor(batt.toNumber()), Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx + (battW / 2).toNumber(), battY, Graphics.FONT_XTINY, battStr,
                         Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
@@ -532,11 +533,14 @@ class PenumbraView extends WatchUi.WatchFace {
 
         // Heart rate tucks into the margin left of the hours card; body battery into
         // the margin right of the seconds card. The card row is the widest part of
-        // the round screen, so these fit beside the digits without clipping.
-        drawCell(dc, (w * 0.085).toNumber(), (h * 0.50).toNumber(),
-                 "heart", numOrDash(getHeartRate()));
-        drawCell(dc, (w * 0.915).toNumber(), (h * 0.50).toNumber(),
-                 "bolt", percentOrDash(getBodyBattery()));
+        // the round screen, so these fit beside the digits without clipping. Both are
+        // tinted by their reading - HR by heart-rate zone, body battery by level.
+        var hr = getHeartRate();
+        drawCellColored(dc, (w * 0.085).toNumber(), (h * 0.50).toNumber(),
+                 "heart", numOrDash(hr), (hr != null) ? heartColor(hr) : mText);
+        var bb = getBodyBattery();
+        drawCellColored(dc, (w * 0.915).toNumber(), (h * 0.50).toNumber(),
+                 "bolt", percentOrDash(bb), (bb != null) ? bodyBatteryColor(bb) : mText);
 
         // Lower row under the cards: distance, calories, floors - all on one line.
         drawCell(dc, (w * 0.275).toNumber(), (h * 0.685).toNumber(),
@@ -607,11 +611,55 @@ class PenumbraView extends WatchUi.WatchFace {
 
     // A complication cell: icon on top, value below, centred on (x, y).
     private function drawCell(dc as Dc, x as Number, y as Number, name as String, value as String) as Void {
+        drawCellColored(dc, x, y, name, value, mText);
+    }
+
+    // As drawCell, but the value is drawn in an explicit colour (semantic tint).
+    private function drawCellColored(dc as Dc, x as Number, y as Number, name as String,
+                                     value as String, color as Number) as Void {
         var labelH = dc.getFontHeight(Graphics.FONT_XTINY);
         drawIcon(dc, name, x, (y - labelH * 0.45).toNumber());
-        dc.setColor(mText, Graphics.COLOR_TRANSPARENT);
+        dc.setColor(color, Graphics.COLOR_TRANSPARENT);
         dc.drawText(x, y + labelH * 0.55, Graphics.FONT_XTINY, value,
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
+    // ---- Semantic colour helpers ----------------------------------------------
+    // Shared status palette (kept independent of the accent so meaning stays fixed).
+    private const COL_GOOD = 0x2EA84F;   // green
+    private const COL_WARN = 0xF2A100;   // amber
+    private const COL_BAD  = 0xE23B2E;   // red
+    private const COL_INFO = 0x2E7DE0;   // blue
+
+    // Device battery: amber under 25%, red under 10%, otherwise the muted default.
+    private function batteryColor(pct as Number) as Number {
+        if (pct <= 10) { return COL_BAD; }
+        if (pct <= 25) { return COL_WARN; }
+        return mMuted;
+    }
+
+    // Body Battery: green when charged, amber mid, red when depleted.
+    private function bodyBatteryColor(v as Number) as Number {
+        if (v >= 50) { return COL_GOOD; }
+        if (v >= 25) { return COL_WARN; }
+        return COL_BAD;
+    }
+
+    // Heart rate tinted by zone, using the user's profile zones when available and
+    // sensible fixed thresholds otherwise. Below zone 2 it stays neutral (mText).
+    private function heartColor(hr as Number) as Number {
+        var z2 = 114; var z3 = 133; var z4 = 152; var z5 = 171;  // fallbacks
+        if ((Toybox has :UserProfile) && (UserProfile has :getHeartRateZones)) {
+            var z = UserProfile.getHeartRateZones(UserProfile.HR_ZONE_SPORT_GENERIC);
+            if (z != null && z.size() >= 6) {
+                z2 = z[1]; z3 = z[2]; z4 = z[3]; z5 = z[4];
+            }
+        }
+        if (hr >= z5) { return COL_BAD; }
+        if (hr >= z4) { return COL_WARN; }
+        if (hr >= z3) { return COL_GOOD; }
+        if (hr >= z2) { return COL_INFO; }
+        return mText;
     }
 
     // ===========================================================================
