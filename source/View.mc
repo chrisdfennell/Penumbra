@@ -380,11 +380,12 @@ class PenumbraView extends WatchUi.WatchFace {
 
         // Upper flanks: alarms (left), notifications (right). Each sits on an
         // ink-filled panel that runs off the left/right bezel, separating it from
-        // the centred weather row (which shares this ~0.315 height) and making it
-        // easy to read at a glance. Icons/values are drawn in the inverted colours.
-        drawFlankCell(dc, w, -1, (w * 0.130).toNumber(), (h * 0.35).toNumber(),
+        // the centred weather row and making it easy to read at a glance. Lifted to
+        // ~0.30 so the panel's lower edge clears the heart / body-battery icons that
+        // sit beside the time cards at ~0.50. Icons/values use the inverted colours.
+        drawFlankCell(dc, w, -1, (w * 0.130).toNumber(), (h * 0.30).toNumber(),
                       "alarm", numOrDash(settings.alarmCount));
-        drawFlankCell(dc, w, 1, (w * 0.870).toNumber(), (h * 0.35).toNumber(),
+        drawFlankCell(dc, w, 1, (w * 0.870).toNumber(), (h * 0.30).toNumber(),
                       "bell", numOrDash(settings.notificationCount));
 
         // Heart rate tucks into the margin left of the hours card; body battery into
