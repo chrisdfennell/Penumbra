@@ -6,7 +6,6 @@ import Toybox.Lang;
 import Toybox.System;
 import Toybox.Time;
 import Toybox.Time.Gregorian;
-import Toybox.UserProfile;
 import Toybox.Weather;
 import Toybox.WatchUi;
 
@@ -692,21 +691,15 @@ class PenumbraView extends WatchUi.WatchFace {
         return COL_BAD;
     }
 
-    // Heart rate tinted by zone, using the user's profile zones when available and
-    // sensible fixed thresholds otherwise. Below zone 2 it stays neutral (mText).
+    // Heart rate tinted by broad zone using fixed thresholds (roughly a 190 bpm
+    // max HR). Kept threshold-based so the face needs no UserProfile permission;
+    // below zone 2 it stays neutral (mText).
     private function heartColor(hr as Number) as Number {
-        var z2 = 114; var z3 = 133; var z4 = 152; var z5 = 171;  // fallbacks
-        if ((Toybox has :UserProfile) && (UserProfile has :getHeartRateZones)) {
-            var z = UserProfile.getHeartRateZones(UserProfile.HR_ZONE_SPORT_GENERIC);
-            if (z != null && z.size() >= 6) {
-                z2 = z[1]; z3 = z[2]; z4 = z[3]; z5 = z[4];
-            }
-        }
-        if (hr >= z5) { return COL_BAD; }
-        if (hr >= z4) { return COL_WARN; }
-        if (hr >= z3) { return COL_GOOD; }
-        if (hr >= z2) { return COL_INFO; }
-        return mText;
+        if (hr >= 171) { return COL_BAD; }   // zone 5
+        if (hr >= 152) { return COL_WARN; }  // zone 4
+        if (hr >= 133) { return COL_GOOD; }  // zone 3
+        if (hr >= 114) { return COL_INFO; }  // zone 2
+        return mText;                        // zone 1 / rest
     }
 
     // ===========================================================================
