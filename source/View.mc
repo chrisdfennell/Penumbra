@@ -25,6 +25,24 @@ class PenumbraView extends WatchUi.WatchFace {
     private var mShowWeather as Boolean = true;
     private var mShowArc as Boolean = true;  // step-goal eclipse ring
 
+    // Configurable complication slots. Each holds a data-type id (DATA_* below).
+    private var mSlotML as Number = 0;  // margin left  - default Heart Rate
+    private var mSlotMR as Number = 1;  // margin right - default Body Battery
+    private var mSlotLL as Number = 4;  // lower left   - default Distance
+    private var mSlotLC as Number = 3;  // lower centre - default Calories
+    private var mSlotLR as Number = 5;  // lower right  - default Floors
+
+    // Data types a slot can show. Mirrored in settings.xml list entries.
+    private const DATA_HR       = 0;
+    private const DATA_BB       = 1;
+    private const DATA_STEPS    = 2;
+    private const DATA_CALORIES = 3;
+    private const DATA_DISTANCE = 4;
+    private const DATA_FLOORS   = 5;
+    private const DATA_ALARMS   = 6;
+    private const DATA_NOTIFS   = 7;
+    private const DATA_NONE     = 8;
+
     // ---- Resolved theme colours (set in onUpdate from mTheme) ------------------
     private var mBg as Number = Graphics.COLOR_WHITE;
     private var mInk as Number = Graphics.COLOR_BLACK;   // digits / primary text
@@ -139,6 +157,11 @@ class PenumbraView extends WatchUi.WatchFace {
         mShowDate    = propBool("ShowDate", true);
         mShowWeather = propBool("ShowWeather", true);
         mShowArc     = propBool("ShowGoalArc", true);
+        mSlotML      = propNumber("SlotML", 0);
+        mSlotMR      = propNumber("SlotMR", 1);
+        mSlotLL      = propNumber("SlotLL", 4);
+        mSlotLC      = propNumber("SlotLC", 3);
+        mSlotLR      = propNumber("SlotLR", 5);
         if (mAccentIdx < 0 || mAccentIdx >= ACCENTS.size()) { mAccentIdx = 0; }
     }
 
@@ -531,24 +554,14 @@ class PenumbraView extends WatchUi.WatchFace {
         drawFlankCell(dc, w, 1, (w * 0.870).toNumber(), (h * 0.30).toNumber(),
                       "bell", numOrDash(settings.notificationCount));
 
-        // Heart rate tucks into the margin left of the hours card; body battery into
-        // the margin right of the seconds card. The card row is the widest part of
-        // the round screen, so these fit beside the digits without clipping. Both are
-        // tinted by their reading - HR by heart-rate zone, body battery by level.
-        var hr = getHeartRate();
-        drawCellColored(dc, (w * 0.085).toNumber(), (h * 0.50).toNumber(),
-                 "heart", numOrDash(hr), (hr != null) ? heartColor(hr) : mText);
-        var bb = getBodyBattery();
-        drawCellColored(dc, (w * 0.915).toNumber(), (h * 0.50).toNumber(),
-                 "bolt", percentOrDash(bb), (bb != null) ? bodyBatteryColor(bb) : mText);
-
-        // Lower row under the cards: distance, calories, floors - all on one line.
-        drawCell(dc, (w * 0.275).toNumber(), (h * 0.685).toNumber(),
-                 "route", distanceString(mon, settings));
-        drawCell(dc, (w * 0.50).toNumber(), (h * 0.685).toNumber(),
-                 "flame", numOrDash(mon != null ? mon.calories : null));
-        drawCell(dc, (w * 0.725).toNumber(), (h * 0.685).toNumber(),
-                 "stairs", floorsString(mon));
+        // Two margin slots beside the digits (widest part of the round screen) and
+        // three slots on the lower row. All five are user-configurable; each renders
+        // whatever data type its setting selects.
+        drawComplicationSlot(dc, (w * 0.085).toNumber(), (h * 0.50).toNumber(), mSlotML, mon, settings);
+        drawComplicationSlot(dc, (w * 0.915).toNumber(), (h * 0.50).toNumber(), mSlotMR, mon, settings);
+        drawComplicationSlot(dc, (w * 0.275).toNumber(), (h * 0.685).toNumber(), mSlotLL, mon, settings);
+        drawComplicationSlot(dc, (w * 0.50).toNumber(),  (h * 0.685).toNumber(), mSlotLC, mon, settings);
+        drawComplicationSlot(dc, (w * 0.725).toNumber(), (h * 0.685).toNumber(), mSlotLR, mon, settings);
 
         // Steps, bottom centre: foot icon above, number below. Kept clear of the
         // bottom bezel.
@@ -609,12 +622,46 @@ class PenumbraView extends WatchUi.WatchFace {
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    // A complication cell: icon on top, value below, centred on (x, y).
-    private function drawCell(dc as Dc, x as Number, y as Number, name as String, value as String) as Void {
-        drawCellColored(dc, x, y, name, value, mText);
+    // Draw a configurable slot: resolve its data-type id to an icon, value, and
+    // (where meaningful) a semantic tint, then render it like any other cell.
+    private function drawComplicationSlot(dc as Dc, x as Number, y as Number, type as Number,
+                                          mon as ActivityMonitor.Info or Null,
+                                          settings as System.DeviceSettings) as Void {
+        var name = "";
+        var value = "--";
+        var color = mText;
+
+        if (type == DATA_HR) {
+            var hr = getHeartRate();
+            name = "heart"; value = numOrDash(hr);
+            if (hr != null) { color = heartColor(hr); }
+        } else if (type == DATA_BB) {
+            var bb = getBodyBattery();
+            name = "bolt"; value = percentOrDash(bb);
+            if (bb != null) { color = bodyBatteryColor(bb); }
+        } else if (type == DATA_STEPS) {
+            name = "footprint";
+            value = (mon != null && mon.steps != null) ? mon.steps.format("%d") : "--";
+        } else if (type == DATA_CALORIES) {
+            name = "flame";
+            value = numOrDash(mon != null ? mon.calories : null);
+        } else if (type == DATA_DISTANCE) {
+            name = "route"; value = distanceString(mon, settings);
+        } else if (type == DATA_FLOORS) {
+            name = "stairs"; value = floorsString(mon);
+        } else if (type == DATA_ALARMS) {
+            name = "alarm"; value = numOrDash(settings.alarmCount);
+        } else if (type == DATA_NOTIFS) {
+            name = "bell"; value = numOrDash(settings.notificationCount);
+        } else {
+            return;  // DATA_NONE (or unknown): leave the slot empty
+        }
+
+        drawCellColored(dc, x, y, name, value, color);
     }
 
-    // As drawCell, but the value is drawn in an explicit colour (semantic tint).
+    // A complication cell: icon on top, value below, centred on (x, y), the value
+    // drawn in the given colour (mText for a plain cell, or a semantic tint).
     private function drawCellColored(dc as Dc, x as Number, y as Number, name as String,
                                      value as String, color as Number) as Void {
         var labelH = dc.getFontHeight(Graphics.FONT_XTINY);

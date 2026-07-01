@@ -31,4 +31,23 @@
     <!-- Step-goal eclipse ring -->
     <string id="ShowGoalArcTitle">Show Goal Ring</string>
     <string id="ShowGoalArcPrompt">Show the eclipse ring around the edge that fills as you approach your daily step goal.</string>
+
+    <!-- Configurable complication slots -->
+    <string id="SlotPrompt">Choose which data this slot shows.</string>
+    <string id="SlotMLTitle">Slot: Left of Time</string>
+    <string id="SlotMRTitle">Slot: Right of Time</string>
+    <string id="SlotLLTitle">Slot: Lower Left</string>
+    <string id="SlotLCTitle">Slot: Lower Centre</string>
+    <string id="SlotLRTitle">Slot: Lower Right</string>
+
+    <!-- Data-type names shared by every slot picker -->
+    <string id="DataHR">Heart Rate</string>
+    <string id="DataBB">Body Battery</string>
+    <string id="DataSteps">Steps</string>
+    <string id="DataCalories">Calories</string>
+    <string id="DataDistance">Distance</string>
+    <string id="DataFloors">Floors</string>
+    <string id="DataAlarms">Alarms</string>
+    <string id="DataNotifs">Notifications</string>
+    <string id="DataNone">None</string>
 </strings>

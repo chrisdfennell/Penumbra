@@ -16,4 +16,13 @@
 
     <!-- Show the step-goal eclipse ring around the edge -->
     <property id="ShowGoalArc" type="boolean">true</property>
+
+    <!-- Configurable complication slots. Data types:
+         0=Heart Rate 1=Body Battery 2=Steps 3=Calories 4=Distance
+         5=Floors 6=Alarms 7=Notifications 8=None -->
+    <property id="SlotML" type="number">0</property>  <!-- margin left  -->
+    <property id="SlotMR" type="number">1</property>  <!-- margin right -->
+    <property id="SlotLL" type="number">4</property>  <!-- lower left   -->
+    <property id="SlotLC" type="number">3</property>  <!-- lower centre -->
+    <property id="SlotLR" type="number">5</property>  <!-- lower right  -->
 </properties>
