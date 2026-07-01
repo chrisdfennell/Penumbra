@@ -23,6 +23,7 @@ class PenumbraView extends WatchUi.WatchFace {
     private var mShowDate as Boolean = true;
     private var mShowWeather as Boolean = true;
     private var mShowArc as Boolean = true;  // step-goal eclipse ring
+    private var mShowHrGraph as Boolean = false;  // HR trend sparkline (lower band)
 
     // Configurable complication slots. Each holds a data-type id (DATA_* below).
     private var mSlotML as Number = 0;  // margin left  - default Heart Rate
@@ -156,6 +157,7 @@ class PenumbraView extends WatchUi.WatchFace {
         mShowDate    = propBool("ShowDate", true);
         mShowWeather = propBool("ShowWeather", true);
         mShowArc     = propBool("ShowGoalArc", true);
+        mShowHrGraph = propBool("ShowHrGraph", false);
         mSlotML      = propNumber("SlotML", 0);
         mSlotMR      = propNumber("SlotMR", 1);
         mSlotLL      = propNumber("SlotLL", 4);
@@ -553,14 +555,19 @@ class PenumbraView extends WatchUi.WatchFace {
         drawFlankCell(dc, w, 1, (w * 0.870).toNumber(), (h * 0.30).toNumber(),
                       "bell", numOrDash(settings.notificationCount));
 
-        // Two margin slots beside the digits (widest part of the round screen) and
-        // three slots on the lower row. All five are user-configurable; each renders
-        // whatever data type its setting selects.
+        // Two margin slots beside the digits (widest part of the round screen).
         drawComplicationSlot(dc, (w * 0.085).toNumber(), (h * 0.50).toNumber(), mSlotML, mon, settings);
         drawComplicationSlot(dc, (w * 0.915).toNumber(), (h * 0.50).toNumber(), mSlotMR, mon, settings);
-        drawComplicationSlot(dc, (w * 0.275).toNumber(), (h * 0.685).toNumber(), mSlotLL, mon, settings);
-        drawComplicationSlot(dc, (w * 0.50).toNumber(),  (h * 0.685).toNumber(), mSlotLC, mon, settings);
-        drawComplicationSlot(dc, (w * 0.725).toNumber(), (h * 0.685).toNumber(), mSlotLR, mon, settings);
+
+        // Lower band: either the three configurable slots, or - in HR trend mode -
+        // a heart-rate sparkline that takes over that strip.
+        if (mShowHrGraph) {
+            drawHrGraph(dc, w, h, cx);
+        } else {
+            drawComplicationSlot(dc, (w * 0.275).toNumber(), (h * 0.685).toNumber(), mSlotLL, mon, settings);
+            drawComplicationSlot(dc, (w * 0.50).toNumber(),  (h * 0.685).toNumber(), mSlotLC, mon, settings);
+            drawComplicationSlot(dc, (w * 0.725).toNumber(), (h * 0.685).toNumber(), mSlotLR, mon, settings);
+        }
 
         // Steps, bottom centre: foot icon above, number below. Kept clear of the
         // bottom bezel.
@@ -668,6 +675,69 @@ class PenumbraView extends WatchUi.WatchFace {
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
         dc.drawText(x, y + labelH * 0.55, Graphics.FONT_XTINY, value,
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
+    // Heart-rate sparkline across the lower band. Samples come from SensorHistory
+    // (newest first); we draw them oldest->newest, left to right - thin, tinted by
+    // the latest zone, over a faint baseline, with a dot on the current reading.
+    private function drawHrGraph(dc as Dc, w as Number, h as Number, cx as Number) as Void {
+        if (!(Toybox has :SensorHistory) || !(Toybox.SensorHistory has :getHeartRateHistory)) {
+            return;
+        }
+        var it = Toybox.SensorHistory.getHeartRateHistory(
+                    {:period => 64, :order => Toybox.SensorHistory.ORDER_NEWEST_FIRST});
+        if (it == null) { return; }
+
+        var vals = [] as Array<Number>;
+        var s = it.next();
+        while (s != null && vals.size() < 64) {
+            if (s.data != null) { vals.add(s.data.toNumber()); }
+            s = it.next();
+        }
+        var n = vals.size();
+        if (n < 2) { return; }
+
+        // Vertical range for scaling.
+        var lo = vals[0];
+        var hi = vals[0];
+        for (var i = 1; i < n; i++) {
+            if (vals[i] < lo) { lo = vals[i]; }
+            if (vals[i] > hi) { hi = vals[i]; }
+        }
+        var span = hi - lo;
+        if (span < 1) { span = 1; }
+
+        var gw = (w * 0.52).toNumber();
+        var gh = (h * 0.085).toNumber();
+        var gx = cx - gw / 2;
+        var gy = (h * 0.64).toNumber();
+
+        // Faint baseline.
+        dc.setPenWidth(1);
+        dc.setColor((mTheme == 1) ? 0x2A2A2A : 0xDCDCDC, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine(gx, gy + gh, gx + gw, gy + gh);
+
+        // Line colour follows the latest zone; stays visible (accent) at rest.
+        var lineCol = heartColor(vals[0]);
+        if (lineCol == mText) { lineCol = mAccent; }
+
+        dc.setPenWidth(2);
+        dc.setColor(lineCol, Graphics.COLOR_TRANSPARENT);
+
+        var prevX = 0;
+        var prevY = 0;
+        for (var i = 0; i < n; i++) {
+            var v = vals[n - 1 - i];               // oldest first, left to right
+            var px = gx + (gw * i) / (n - 1);
+            var py = gy + gh - ((v - lo) * gh) / span;
+            if (i > 0) { dc.drawLine(prevX, prevY, px, py); }
+            prevX = px;
+            prevY = py;
+        }
+
+        // Dot on the current reading (right end).
+        dc.fillCircle(prevX, prevY, (w * 0.012).toNumber());
+        dc.setPenWidth(1);
     }
 
     // ---- Semantic colour helpers ----------------------------------------------

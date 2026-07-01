@@ -38,6 +38,11 @@
         <settingConfig type="boolean" />
     </setting>
 
+    <!-- Show HR trend sparkline -->
+    <setting propertyKey="@Properties.ShowHrGraph" title="@Strings.ShowHrGraphTitle" prompt="@Strings.ShowHrGraphPrompt">
+        <settingConfig type="boolean" />
+    </setting>
+
     <!-- Configurable complication slots -->
     <setting propertyKey="@Properties.SlotML" title="@Strings.SlotMLTitle" prompt="@Strings.SlotPrompt">
         <settingConfig type="list">

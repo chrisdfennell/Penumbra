@@ -17,6 +17,9 @@
     <!-- Show the step-goal eclipse ring around the edge -->
     <property id="ShowGoalArc" type="boolean">true</property>
 
+    <!-- Show a heart-rate trend sparkline in place of the lower complication row -->
+    <property id="ShowHrGraph" type="boolean">false</property>
+
     <!-- Configurable complication slots. Data types:
          0=Heart Rate 1=Body Battery 2=Steps 3=Calories 4=Distance
          5=Floors 6=Alarms 7=Notifications 8=None -->

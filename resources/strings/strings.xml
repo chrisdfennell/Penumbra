@@ -32,6 +32,10 @@
     <string id="ShowGoalArcTitle">Show Goal Ring</string>
     <string id="ShowGoalArcPrompt">Show the eclipse ring around the edge that fills as you approach your daily step goal.</string>
 
+    <!-- HR trend sparkline -->
+    <string id="ShowHrGraphTitle">Show HR Graph</string>
+    <string id="ShowHrGraphPrompt">Replace the lower complication row with a recent heart-rate trend line.</string>
+
     <!-- Configurable complication slots -->
     <string id="SlotPrompt">Choose which data this slot shows.</string>
     <string id="SlotMLTitle">Slot: Left of Time</string>
