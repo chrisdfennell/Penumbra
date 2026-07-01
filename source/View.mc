@@ -22,6 +22,7 @@ class PenumbraView extends WatchUi.WatchFace {
     private var mShowSeconds as Boolean = true;
     private var mShowDate as Boolean = true;
     private var mShowWeather as Boolean = true;
+    private var mShowArc as Boolean = true;  // step-goal eclipse ring
 
     // ---- Resolved theme colours (set in onUpdate from mTheme) ------------------
     private var mBg as Number = Graphics.COLOR_WHITE;
@@ -136,6 +137,7 @@ class PenumbraView extends WatchUi.WatchFace {
         mShowSeconds = propBool("ShowSeconds", true);
         mShowDate    = propBool("ShowDate", true);
         mShowWeather = propBool("ShowWeather", true);
+        mShowArc     = propBool("ShowGoalArc", true);
         if (mAccentIdx < 0 || mAccentIdx >= ACCENTS.size()) { mAccentIdx = 0; }
     }
 
@@ -172,9 +174,54 @@ class PenumbraView extends WatchUi.WatchFace {
         dc.setColor(mBg, mBg);
         dc.clear();
 
+        if (mShowArc) { drawGoalArc(dc, w, h, cx); }
         drawTopCluster(dc, w, h, cx);
         drawTimeCards(dc, w, h, cx);
         drawComplications(dc, w, h, cx);
+    }
+
+    // The eclipse ring: a faint full "penumbra" track hugging the bezel, with the
+    // portion of today's step goal that's complete lit in the accent colour,
+    // sweeping clockwise from 12 o'clock like a shadow crossing the disc.
+    private function drawGoalArc(dc as Dc, w as Number, h as Number, cx as Number) as Void {
+        var mon = ActivityMonitor.getInfo();
+        if (mon == null) { return; }
+
+        var steps = (mon.steps != null) ? mon.steps : 0;
+        var goal = 10000;
+        if (mon has :stepGoal && mon.stepGoal != null && mon.stepGoal > 0) {
+            goal = mon.stepGoal;
+        }
+        var frac = steps.toFloat() / goal.toFloat();
+        if (frac < 0.0) { frac = 0.0; }
+        if (frac > 1.0) { frac = 1.0; }
+
+        var cy  = h / 2;
+        var pen = (w * 0.022).toNumber();
+        if (pen < 3) { pen = 3; }
+        var minDim = (w < h) ? w : h;
+        var r = minDim / 2 - pen / 2 - (w * 0.010).toNumber();
+
+        dc.setPenWidth(pen);
+
+        // Faint full track (the shadow).
+        var track = (mTheme == 1) ? 0x2A2A2A : 0xDCDCDC;
+        dc.setColor(track, Graphics.COLOR_TRANSPARENT);
+        dc.drawCircle(cx, cy, r);
+
+        // Lit progress arc, clockwise from the top.
+        if (frac >= 0.999) {
+            dc.setColor(mAccent, Graphics.COLOR_TRANSPARENT);
+            dc.drawCircle(cx, cy, r);
+        } else if (frac > 0.0) {
+            // Clockwise from 12 o'clock (90 deg). Keep the end angle in 0..360.
+            var endDeg = 90.0 - frac * 360.0;
+            if (endDeg < 0.0) { endDeg += 360.0; }
+            dc.setColor(mAccent, Graphics.COLOR_TRANSPARENT);
+            dc.drawArc(cx, cy, r, Graphics.ARC_CLOCKWISE, 90, endDeg.toNumber());
+        }
+
+        dc.setPenWidth(1);
     }
 
     // True on AMOLED panels that need burn-in protection in always-on mode.

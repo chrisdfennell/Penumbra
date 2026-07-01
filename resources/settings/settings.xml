@@ -32,4 +32,9 @@
     <setting propertyKey="@Properties.ShowWeather" title="@Strings.ShowWeatherTitle" prompt="@Strings.ShowWeatherPrompt">
         <settingConfig type="boolean" />
     </setting>
+
+    <!-- Show step-goal eclipse ring -->
+    <setting propertyKey="@Properties.ShowGoalArc" title="@Strings.ShowGoalArcTitle" prompt="@Strings.ShowGoalArcPrompt">
+        <settingConfig type="boolean" />
+    </setting>
 </settings>

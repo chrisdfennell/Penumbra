@@ -27,4 +27,8 @@
     <!-- Weather -->
     <string id="ShowWeatherTitle">Show Weather</string>
     <string id="ShowWeatherPrompt">Show the current temperature and daily high/low when weather data is available.</string>
+
+    <!-- Step-goal eclipse ring -->
+    <string id="ShowGoalArcTitle">Show Goal Ring</string>
+    <string id="ShowGoalArcPrompt">Show the eclipse ring around the edge that fills as you approach your daily step goal.</string>
 </strings>

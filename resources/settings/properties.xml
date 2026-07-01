@@ -13,4 +13,7 @@
 
     <!-- Show the weather complication (temp + hi/lo) -->
     <property id="ShowWeather" type="boolean">true</property>
+
+    <!-- Show the step-goal eclipse ring around the edge -->
+    <property id="ShowGoalArc" type="boolean">true</property>
 </properties>
