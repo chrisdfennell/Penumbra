@@ -360,7 +360,7 @@ class PenumbraView extends WatchUi.WatchFace {
         // Card geometry, proportional to the screen.
         var cardH  = (h * 0.175).toNumber();
         var mainW  = (w * 0.225).toNumber();
-        var ssW    = (w * 0.135).toNumber();
+        var ssW    = (w * 0.115).toNumber();
         var gap    = (w * 0.020).toNumber();
         var radius = (cardH * 0.16).toNumber();
 
@@ -375,13 +375,16 @@ class PenumbraView extends WatchUi.WatchFace {
         var ssH = (cardH * 0.62).toNumber();
         var ssTop = cardTop + (cardH - ssH) / 2;
 
-        // Pick the largest numeric font that fits the main card, then drop the
-        // seconds to a smaller tier so they read clearly smaller than HH/MM.
+        // Pick the largest numeric font that fits the main card (unchanged big
+        // fallback), then size the seconds to their own smaller box from the
+        // extended ladder - clamped at least one tier below the main digits so
+        // they read clearly subordinate to HH/MM.
         var mainIdx  = pickNumberFontIndex(dc, "00", (mainW * 0.84).toNumber(), (cardH * 0.84).toNumber());
         var mainFont = NUMBER_FONTS[mainIdx];
-        var ssIdx    = mainIdx + 1;
-        if (ssIdx >= NUMBER_FONTS.size()) { ssIdx = NUMBER_FONTS.size() - 1; }
-        var ssFont   = NUMBER_FONTS[ssIdx];
+        var ssIdx    = pickFontIndex(dc, SEC_FONTS, "00", (ssW * 0.90).toNumber(), (ssH * 0.90).toNumber());
+        if (ssIdx < mainIdx + 1) { ssIdx = mainIdx + 1; }
+        if (ssIdx >= SEC_FONTS.size()) { ssIdx = SEC_FONTS.size() - 1; }
+        var ssFont   = SEC_FONTS[ssIdx];
 
         // Cache the seconds centre + font so onPartialUpdate can retick in place.
         mSecCx = ssX + ssW / 2;
@@ -430,7 +433,9 @@ class PenumbraView extends WatchUi.WatchFace {
             var now = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
             var dateStr = now.day_of_week + " " + now.day.format("%02d");
 
-            var font = Graphics.FONT_SMALL;
+            // One size down from the old FONT_SMALL: the date is glanced at far
+            // less than the time, so it shouldn't be the second-loudest element.
+            var font = Graphics.FONT_TINY;
             var tw = dc.getTextWidthInPixels(dateStr, font);
             var padX = (w * 0.04).toNumber();
             var pillW = tw + padX * 2;
@@ -511,31 +516,46 @@ class PenumbraView extends WatchUi.WatchFace {
         dc.drawText(x, wy, font, curStr, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
         x += curW;
 
-        // high, capped with an up caret
+        // high, capped with a red up caret (status-palette red, not pure red)
         if (hiStr != null) {
             x += gap;
-            drawTempWithArrow(dc, x, wy, "arrow-up", hiStr, hiW, font);
+            drawTempWithArrow(dc, x, wy, true, COL_BAD, hiStr, hiW, font);
             x += hiW;
         }
-        // low, capped with a down caret
+        // low, capped with a blue down caret (status-palette blue)
         if (loStr != null) {
             x += gap;
-            drawTempWithArrow(dc, x, wy, "arrow-down", loStr, loW, font);
+            drawTempWithArrow(dc, x, wy, false, COL_INFO, loStr, loW, font);
             x += loW;
         }
     }
 
-    // Draw a temperature number left-justified at (x, y) with a caret centred above it.
-    private function drawTempWithArrow(dc as Dc, x as Number, y as Number, arrowName as String,
-                                       numStr as String, numW as Number, font as FontType) as Void {
-        dc.setColor(mText, Graphics.COLOR_TRANSPARENT);
+    // Draw a temperature number left-justified at (x, y) with a caret centred above
+    // it. The caret is a filled triangle in `caretColor` (pointing up when
+    // `pointUp` is true, otherwise down) so the high/low markers can be tinted
+    // regardless of the monochrome icon theme. The number itself is muted so the
+    // current temperature stays the loudest part of the row.
+    private function drawTempWithArrow(dc as Dc, x as Number, y as Number, pointUp as Boolean,
+                                       caretColor as Number, numStr as String, numW as Number,
+                                       font as FontType) as Void {
+        dc.setColor(mMuted, Graphics.COLOR_TRANSPARENT);
         dc.drawText(x, y, font, numStr, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
-        var bmp = icon(arrowName);
-        if (bmp != null) {
-            var ax = (x + numW / 2 - bmp.getWidth() / 2).toNumber();
-            var ay = (y - dc.getFontHeight(font) / 2 - bmp.getHeight() + 4).toNumber();
-            dc.drawBitmap(ax, ay, bmp);
+
+        var fh = dc.getFontHeight(font);
+        var cw = (fh * 0.34).toNumber();          // caret width
+        var ch = (fh * 0.30).toNumber();          // caret height
+        var cxc = (x + numW / 2).toNumber();      // caret centre x
+        var bottom = (y - fh / 2 + 2).toNumber(); // caret base sits just above the digits
+        var top = bottom - ch;
+
+        var pts;
+        if (pointUp) {
+            pts = [[cxc, top], [cxc - cw / 2, bottom], [cxc + cw / 2, bottom]];
+        } else {
+            pts = [[cxc - cw / 2, top], [cxc + cw / 2, top], [cxc, bottom]];
         }
+        dc.setColor(caretColor, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon(pts);
     }
 
     // ===========================================================================
@@ -569,14 +589,12 @@ class PenumbraView extends WatchUi.WatchFace {
             drawComplicationSlot(dc, (w * 0.725).toNumber(), (h * 0.685).toNumber(), mSlotLR, mon, settings);
         }
 
-        // Steps, bottom centre: foot icon above, number below. Kept clear of the
-        // bottom bezel.
+        // Steps, bottom centre: the same icon-over-value cell as the rest of the
+        // lower band, so the bottom doesn't read heavier than its neighbours.
+        // Kept clear of the bottom bezel.
         var steps = (mon != null) ? mon.steps : null;
         var stepsStr = (steps != null) ? steps.format("%d") : "--";
-        drawIcon(dc, "footprint", cx, (h * 0.795).toNumber());
-        dc.setColor(mInk, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, (h * 0.865).toNumber(), Graphics.FONT_MEDIUM, stepsStr,
-                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        drawCellColored(dc, cx, (h * 0.83).toNumber(), "footprint", stepsStr, mText);
     }
 
     // A flank complication seated on an ink-filled panel that runs off the bezel.
@@ -600,9 +618,10 @@ class PenumbraView extends WatchUi.WatchFace {
         var padY   = (labelH * 0.40).toNumber();
         var radius = (labelH * 0.5).toNumber();
 
-        // Icon centred just above cy, value just below (matches drawCell).
-        var iconCy = (cy - labelH * 0.45).toNumber();
-        var textCy = (cy + labelH * 0.55).toNumber();
+        // Icon centred just above cy, value just below (matches drawCellColored's
+        // symmetric offsets so flanks and cells share one vertical rhythm).
+        var iconCy = (cy - labelH * 0.50).toNumber();
+        var textCy = (cy + labelH * 0.50).toNumber();
 
         var top    = iconCy - iconH / 2 - padY;
         var bottom = (textCy + labelH / 2 + padY).toNumber();
@@ -668,12 +687,14 @@ class PenumbraView extends WatchUi.WatchFace {
 
     // A complication cell: icon on top, value below, centred on (x, y), the value
     // drawn in the given colour (mText for a plain cell, or a semantic tint).
+    // Icon and value are offset symmetrically so the cluster's visual centre is
+    // exactly (x, y) - the margin pairs then align dead-centre with the time row.
     private function drawCellColored(dc as Dc, x as Number, y as Number, name as String,
                                      value as String, color as Number) as Void {
         var labelH = dc.getFontHeight(Graphics.FONT_XTINY);
-        drawIcon(dc, name, x, (y - labelH * 0.45).toNumber());
+        drawIcon(dc, name, x, (y - labelH * 0.50).toNumber());
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(x, y + labelH * 0.55, Graphics.FONT_XTINY, value,
+        dc.drawText(x, y + labelH * 0.50, Graphics.FONT_XTINY, value,
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
@@ -867,18 +888,36 @@ class PenumbraView extends WatchUi.WatchFace {
     // ===========================================================================
     //  Small helpers
     // ===========================================================================
-    // Numeric system fonts, largest to smallest.
+    // Numeric system fonts, largest to smallest. The main HH/MM digits pick from
+    // this list only, so they keep their big FONT_NUMBER_MILD fallback on large
+    // screens (nothing "fits" the card box and the picker clamps to the last,
+    // biggest-available entry - by design).
     private const NUMBER_FONTS = [Graphics.FONT_NUMBER_THAI_HOT, Graphics.FONT_NUMBER_HOT,
                                   Graphics.FONT_NUMBER_MEDIUM, Graphics.FONT_NUMBER_MILD];
 
+    // The seconds ladder continues past the number fonts into the regular text
+    // fonts (which render digits fine), so the seconds can always drop below the
+    // main digits even when those already sit at FONT_NUMBER_MILD. The first four
+    // entries mirror NUMBER_FONTS so indices stay comparable for the tier clamp.
+    private const SEC_FONTS = [Graphics.FONT_NUMBER_THAI_HOT, Graphics.FONT_NUMBER_HOT,
+                               Graphics.FONT_NUMBER_MEDIUM, Graphics.FONT_NUMBER_MILD,
+                               Graphics.FONT_MEDIUM, Graphics.FONT_XTINY];
+
     private function pickNumberFontIndex(dc as Dc, sample as String, maxW as Number, maxH as Number) as Number {
-        for (var i = 0; i < NUMBER_FONTS.size(); i++) {
-            if (dc.getFontHeight(NUMBER_FONTS[i]) <= maxH &&
-                dc.getTextWidthInPixels(sample, NUMBER_FONTS[i]) <= maxW) {
+        return pickFontIndex(dc, NUMBER_FONTS, sample, maxW, maxH);
+    }
+
+    // Largest font in `fonts` (ordered big -> small) that fits the box; falls
+    // back to the last (smallest) entry when nothing fits.
+    private function pickFontIndex(dc as Dc, fonts as Array, sample as String,
+                                   maxW as Number, maxH as Number) as Number {
+        for (var i = 0; i < fonts.size(); i++) {
+            if (dc.getFontHeight(fonts[i]) <= maxH &&
+                dc.getTextWidthInPixels(sample, fonts[i]) <= maxW) {
                 return i;
             }
         }
-        return NUMBER_FONTS.size() - 1;
+        return fonts.size() - 1;
     }
 
     private function pad2(n as Number) as String {
