@@ -101,6 +101,14 @@ class PenumbraView extends WatchUi.WatchFace {
         return d[name] as WatchUi.BitmapResource?;
     }
 
+    // The bitmap for an icon in the OPPOSITE theme colour, for icons that sit on
+    // an inverted (ink-filled) panel — white icons on a black panel in the Light
+    // theme, black icons on a white panel in the Dark theme.
+    private function iconInverted(name as String) as WatchUi.BitmapResource? {
+        var d = (mTheme == 1) ? mIconBlack : mIconWhite;
+        return d[name] as WatchUi.BitmapResource?;
+    }
+
     // Draw an icon centred on (cx, cy) at its native size.
     private function drawIcon(dc as Dc, name as String, cx as Number, cy as Number) as Void {
         var bmp = icon(name);
@@ -370,14 +378,14 @@ class PenumbraView extends WatchUi.WatchFace {
         var mon = ActivityMonitor.getInfo();
         var settings = System.getDeviceSettings();
 
-        // Upper flanks: alarms (left), notifications (right). Pushed out toward the
-        // left/right edges so they clear the centred weather row (which shares this
-        // ~0.315 height) instead of sitting on top of it. The round-screen chord is
-        // wide enough here (~0.02..0.98) to seat them comfortably in from the bezel.
-        drawCell(dc, (w * 0.130).toNumber(), (h * 0.35).toNumber(),
-                 "alarm", numOrDash(settings.alarmCount));
-        drawCell(dc, (w * 0.870).toNumber(), (h * 0.35).toNumber(),
-                 "bell", numOrDash(settings.notificationCount));
+        // Upper flanks: alarms (left), notifications (right). Each sits on an
+        // ink-filled panel that runs off the left/right bezel, separating it from
+        // the centred weather row (which shares this ~0.315 height) and making it
+        // easy to read at a glance. Icons/values are drawn in the inverted colours.
+        drawFlankCell(dc, w, -1, (w * 0.130).toNumber(), (h * 0.35).toNumber(),
+                      "alarm", numOrDash(settings.alarmCount));
+        drawFlankCell(dc, w, 1, (w * 0.870).toNumber(), (h * 0.35).toNumber(),
+                      "bell", numOrDash(settings.notificationCount));
 
         // Heart rate tucks into the margin left of the hours card; body battery into
         // the margin right of the seconds card. The card row is the widest part of
@@ -402,6 +410,55 @@ class PenumbraView extends WatchUi.WatchFace {
         drawIcon(dc, "footprint", cx, (h * 0.795).toNumber());
         dc.setColor(mInk, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, (h * 0.865).toNumber(), Graphics.FONT_MEDIUM, stepsStr,
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
+    // A flank complication seated on an ink-filled panel that runs off the bezel.
+    // `side` is -1 for the left edge, +1 for the right. The panel is filled with
+    // mInk (black on Light, white on Dark); the icon uses the inverted colour set
+    // and the value is drawn in mBg so both stand off the panel.
+    private function drawFlankCell(dc as Dc, w as Number, side as Number,
+                                   cx as Number, cy as Number,
+                                   name as String, value as String) as Void {
+        var font = Graphics.FONT_XTINY;
+        var labelH = dc.getFontHeight(font);
+
+        var bmp = iconInverted(name);
+        var iconW = (bmp != null) ? bmp.getWidth() : 0;
+        var iconH = (bmp != null) ? bmp.getHeight() : 0;
+
+        var valW = dc.getTextWidthInPixels(value, font);
+        var contentW = (iconW > valW) ? iconW : valW;
+
+        var padX   = (w * 0.045).toNumber();
+        var padY   = (labelH * 0.40).toNumber();
+        var radius = (labelH * 0.5).toNumber();
+
+        // Icon centred just above cy, value just below (matches drawCell).
+        var iconCy = (cy - labelH * 0.45).toNumber();
+        var textCy = (cy + labelH * 0.55).toNumber();
+
+        var top    = iconCy - iconH / 2 - padY;
+        var bottom = (textCy + labelH / 2 + padY).toNumber();
+
+        // Anchor the far edge past the bezel so only the inner corners round.
+        var left; var right;
+        if (side < 0) {
+            left  = 0 - radius;
+            right = cx + contentW / 2 + padX;
+        } else {
+            left  = cx - contentW / 2 - padX;
+            right = w + radius;
+        }
+
+        dc.setColor(mInk, Graphics.COLOR_TRANSPARENT);
+        dc.fillRoundedRectangle(left, top, right - left, bottom - top, radius);
+
+        if (bmp != null) {
+            dc.drawBitmap((cx - iconW / 2).toNumber(), (iconCy - iconH / 2).toNumber(), bmp);
+        }
+        dc.setColor(mBg, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, textCy, font, value,
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
