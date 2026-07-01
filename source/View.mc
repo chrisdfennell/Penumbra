@@ -31,6 +31,15 @@ class PenumbraView extends WatchUi.WatchFace {
     private var mIcon as Number = 0x505050;              // complication icons
     private var mAccent as Number = 0xF08A1E;            // card colour
 
+    // ---- Power state + seconds geometry ---------------------------------------
+    // mLowPower tracks sleep/always-on; the seconds fields are cached each full
+    // render so onPartialUpdate can retick just the seconds glyph in place.
+    private var mLowPower as Boolean = false;
+    private var mSecCx as Number = 0;
+    private var mSecCy as Number = 0;
+    private var mSecFont as FontType = Graphics.FONT_NUMBER_MILD;
+    private var mHasSecGeom as Boolean = false;
+
     // Accent palette, indexed by the Accent property.
     private const ACCENTS = [0xF08A1E, 0x2E7DE0, 0x2EA84F, 0xE23B2E, 0xF2C400];
 
@@ -152,6 +161,13 @@ class PenumbraView extends WatchUi.WatchFace {
 
         if (dc has :setAntiAlias) { dc.setAntiAlias(true); }
 
+        // Always-on (AMOLED) low-power: draw a minimal, dim, burn-in-safe face -
+        // just HH:MM in a muted grey on black - to cut lit pixels and save battery.
+        if (mLowPower && requiresBurnInProtection()) {
+            drawLowPowerFace(dc, w, h, cx);
+            return;
+        }
+
         // Clear to background.
         dc.setColor(mBg, mBg);
         dc.clear();
@@ -159,6 +175,75 @@ class PenumbraView extends WatchUi.WatchFace {
         drawTopCluster(dc, w, h, cx);
         drawTimeCards(dc, w, h, cx);
         drawComplications(dc, w, h, cx);
+    }
+
+    // True on AMOLED panels that need burn-in protection in always-on mode.
+    private function requiresBurnInProtection() as Boolean {
+        var s = System.getDeviceSettings();
+        if (s has :requiresBurnInProtection) {
+            return s.requiresBurnInProtection;
+        }
+        return false;
+    }
+
+    // Sleep/wake hooks: track power state and repaint. In low power we stop the
+    // per-second update (see onPartialUpdate) and, on AMOLED, switch to the dim
+    // minimal face.
+    function onEnterSleep() as Void {
+        mLowPower = true;
+        WatchUi.requestUpdate();
+    }
+
+    function onExitSleep() as Void {
+        mLowPower = false;
+        WatchUi.requestUpdate();
+    }
+
+    // Retick only the seconds each second while awake. Kept tiny - clip to the
+    // seconds glyph, clear it, redraw - to stay inside the partial-update power
+    // budget. Skipped in low power so seconds don't tick in always-on.
+    function onPartialUpdate(dc as Dc) as Void {
+        if (!mShowSeconds || mLowPower || !mHasSecGeom) { return; }
+        if (dc has :setAntiAlias) { dc.setAntiAlias(true); }
+
+        var ss = pad2(System.getClockTime().sec);
+        var tw = dc.getTextWidthInPixels(ss, mSecFont);
+        var fh = dc.getFontHeight(mSecFont);
+        var cw = tw + 8;
+        var ch = fh + 4;
+        var x0 = mSecCx - cw / 2;
+        var y0 = mSecCy - ch / 2;
+
+        dc.setClip(x0, y0, cw, ch);
+        dc.setColor(mBg, mBg);
+        dc.clear();
+        dc.setColor(mAccent, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(mSecCx, mSecCy, mSecFont, ss,
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.clearClip();
+    }
+
+    // The minimal always-on face: dim HH:MM centred on black, drifting a few
+    // pixels each minute so no pixel stays lit in one spot (burn-in guard).
+    private function drawLowPowerFace(dc as Dc, w as Number, h as Number, cx as Number) as Void {
+        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+        dc.clear();
+
+        var clock = System.getClockTime();
+        var hour = clock.hour;
+        if (!System.getDeviceSettings().is24Hour) {
+            hour = hour % 12;
+            if (hour == 0) { hour = 12; }
+        }
+        var hhmm = pad2(hour) + ":" + pad2(clock.min);
+
+        var idx = pickNumberFontIndex(dc, "00:00", (w * 0.72).toNumber(), (h * 0.30).toNumber());
+        var ox = (clock.min % 6) - 3;            // -3..+2 px horizontal drift
+        var oy = ((clock.min / 6) % 6) - 3;      // -3..+2 px vertical drift
+
+        dc.setColor(0x646464, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx + ox, (h * 0.50).toNumber() + oy, NUMBER_FONTS[idx], hhmm,
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     private function resolveTheme() as Void {
@@ -194,7 +279,11 @@ class PenumbraView extends WatchUi.WatchFace {
         var mm = pad2(clock.min);
         var ss = pad2(clock.sec);
 
-        var showSec = mShowSeconds;
+        // Reserve the seconds slot whenever the setting is on so HH/MM stay put,
+        // but only actually paint the seconds while awake - in low power we blank
+        // them (they'd only tick per minute) and let onPartialUpdate drive them.
+        var reserveSec = mShowSeconds;
+        var drawSec    = mShowSeconds && !mLowPower;
 
         // Card geometry, proportional to the screen.
         var cardH  = (h * 0.175).toNumber();
@@ -203,7 +292,7 @@ class PenumbraView extends WatchUi.WatchFace {
         var gap    = (w * 0.020).toNumber();
         var radius = (cardH * 0.16).toNumber();
 
-        var totalW = showSec ? (mainW * 2 + ssW + gap * 2) : (mainW * 2 + gap);
+        var totalW = reserveSec ? (mainW * 2 + ssW + gap * 2) : (mainW * 2 + gap);
         var startX = cx - totalW / 2;
         var cardTop = (h * 0.50).toNumber() - cardH / 2;
 
@@ -222,12 +311,18 @@ class PenumbraView extends WatchUi.WatchFace {
         if (ssIdx >= NUMBER_FONTS.size()) { ssIdx = NUMBER_FONTS.size() - 1; }
         var ssFont   = NUMBER_FONTS[ssIdx];
 
+        // Cache the seconds centre + font so onPartialUpdate can retick in place.
+        mSecCx = ssX + ssW / 2;
+        mSecCy = ssTop + ssH / 2;
+        mSecFont = ssFont;
+        mHasSecGeom = reserveSec;
+
         // Main HH / MM cards.
         drawCard(dc, hhX, cardTop, mainW, cardH, radius, hh, mainFont, mInk);
         drawCard(dc, mmX, cardTop, mainW, cardH, radius, mm, mainFont, mInk);
 
         // Smaller seconds card, vertically centred on the same row.
-        if (showSec) {
+        if (drawSec) {
             drawCard(dc, ssX, ssTop, ssW, ssH, (radius * 0.8).toNumber(), ss, ssFont, mAccent);
         }
     }
